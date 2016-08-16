@@ -1,0 +1,36 @@
+{
+  "isDeveloper":true,
+  "port":80,
+  "session":{
+    "secret":"secret123",
+    "key":"mysid",
+    "cookie":{
+      "path":"/",
+      "httpOnly":true,
+      "maxAge":null
+    }
+  },
+  "mysqlConnection":{
+    "connectionLimit":10,
+    "port": "3306",
+    "host": "192.168.1.34",
+    "user": "root",
+    "password": "aambfi5y",
+    "database": "VG",
+    "dateStrings":"TIMESTAMP"
+  },
+  "mail":{
+    "mailTransport":{
+      "host": "smtp.hc.ru",
+      "port": 465,
+      "debug":true,
+      "secure":true,
+      "auth": {
+        "user": "info@cfft.ru",
+        "pass": "0xd2skQv"
+      }
+    },
+    "from":"info@cfft.ru"
+  },
+  "feedbackEmail":"pswwgr@mail.ru"
+}
