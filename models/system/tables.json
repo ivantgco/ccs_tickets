@@ -456,5 +456,43 @@
       "default_for_data_type" : {"type": "varchar", "length": "255", "name": "Знач. по умолч. для типа данных"},
       "sysname" : {"type": "varchar", "length": "255", "name": "Системное имя"}
     }
+  },
+  "hall": {
+    "profile": {
+      "name": "hall",
+      "name_ru": "Зал",
+      "ending": ""
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "address": { "type": "varchar", "length": "255", "name": "Адрес"},
+      "area_id": { "type": "bigint", "length": "20", "parent_key": true, "from_table": "area"},
+      "test_child_name": { "type": "varchar", "length": "255", "from_table": "area", "keyword": "area_id", "return_column": "name", "virtual": true, "name": "Площадка"}
+    }
+  },
+  "area": {
+    "profile": {
+      "name": "area",
+      "name_ru": "Площадка",
+      "ending": ""
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "sysname": { "type": "varchar", "length": "255", "name": "Системное"},
+      "address": { "type": "varchar", "length": "255", "name": "Адрес"},
+      "google_address": { "type": "varchar", "length": "255", "name": "Google Адрес"},
+      "default_poster": { "type": "varchar", "length": "255", "name": "Постер по умолч."},
+      "poster_url_big": { "type": "varchar", "length": "255", "name": "Изображение (URL) большое"},
+      "poster_url_middle": { "type": "varchar", "length": "255", "name": "Изображение (URL) среднее"},
+      "poster_url_small": { "type": "varchar", "length": "255", "name": "Изображение (URL) маленькое"},
+      "site": { "type": "varchar", "length": "255", "name": "Сайт"},
+      "discription": { "type": "text", "name": "Описание"},
+      "phone": { "type": "varchar", "length": "255", "name": "Тел."},
+      "metro": { "type": "varchar", "length": "255", "name": "Метро"},
+      "address": { "type": "varchar", "length": "255", "name": "Адрес"},
+      "alias": { "type": "varchar", "length": "255", "name": "ALIAS"}
+    }
   }
 }
