@@ -552,7 +552,7 @@
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
       "name": { "type": "varchar", "length": "255", "name": "Наименование"},
       "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
-      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true, "visible": false}
+      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true}
     }
   },
   "hall_scheme_element_group": {

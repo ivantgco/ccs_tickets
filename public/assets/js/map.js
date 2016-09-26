@@ -47,7 +47,7 @@ var Map1 = function (params) {
     })();
 
     this.t1 = new Date().getTime();
-
+    this.currency = "руб.";
 
     this.host = params.host || "";
     this.doc_root = params.doc_root || "";
@@ -95,6 +95,7 @@ var Map1 = function (params) {
     };
     this.setSize.call(this);
     this.bgColor = params.bgColor || "#f7f7f7";
+    this.bgColorSectorMode = params.bgColorSectorMode || this.bgColor || "#f7f7f7";
     this.minX = Infinity;
     this.maxX = -Infinity;
     this.maxY = -Infinity;
@@ -116,6 +117,8 @@ var Map1 = function (params) {
     this.hoverSquare = null;
     this.squares = {};
     this.sectors = [];
+    this.sectorLightSpeedPlus = params.sectorLightSpeedPlus || 1;
+    this.sectorLightSpeedMinus = params.sectorLightSpeedMinus || 1;
     this.subSectors = [];
     this.squaresTrash = {};
     this.renderList = {
@@ -154,6 +157,7 @@ var Map1 = function (params) {
         this.object = params.object;
     };
     this.labels = {};
+    this.noLabelDraw = params.noLabelDraw || false;
     this.hoveredSquare = 0;
     this.moving = false;
     this.shadow = false;
@@ -189,6 +193,7 @@ var Map1 = function (params) {
     this.downY_obj = 0;
     this.changed = false;
     this.load_alias = '';
+    this.is_mobile = params.is_mobile;
     this.excludeSelectors = params.excludeSelectors || "";
     this.mapInfo = {
         selection: 0,
@@ -196,6 +201,7 @@ var Map1 = function (params) {
         x: 0,
         y: 0
     };
+    this.statusDuration = params.statusDuration || 100;
 
     var s = this.mode + '_';
     for (var i2 in this.loadObj.params) {
@@ -237,7 +243,9 @@ var Map1 = function (params) {
     map.cnvBackground = map.container.find('#canvasBackground');
     map.cnv0 = map.container.find('#canvas0');
     map.cnv1 = map.container.find('#canvas1');
-    map.container.attr("tabindex", "1").focus();
+    if (params.focus_on_widget===true){
+        map.container.attr("tabindex", "1").focus();
+    }
     map.loader_box = map.container.children(".loader_box");
     map.loader = map.loader_box.children(".loader");
     map.loader.css({left: map.containerWidth / 2 - 50 + "px", top: map.containercHeight / 2 - 50 + "px"});
@@ -259,7 +267,8 @@ var Map1 = function (params) {
      map.ctx.mozImageSmoothingEnabled = false;*/
     map.ctx2 = map.zoom_container.children("#canvas2")[0].getContext('2d');
     this.pictures.init(this);
-
+    this.doNotUseSquareCache = params.doNotUseSquareCache;
+    this.simpleSquare = params.simpleSquare;
     map.ctx.font = "italic 20pt 'Open Sans'";
     map.ctx.fillStyle = "#000";
     if (typeof Selector === "function")
@@ -267,11 +276,21 @@ var Map1 = function (params) {
             parentBox: map.container,
             zIndex: 102
         });
+    if ($("#mapInfo").length != 0) $("#mapInfo").remove();
+    $("body").append('<div id="mapInfo" ><div class="info"></div><div class="fa fa-expand" id="resizeTo100"></div></div>');
+    $("#resizeTo100").off('click').on('click', function () {
+        map.setMinMax(function () {
+            map.setScaleCoff({scaleCoeff:1}, function () {
+                map.render();
+            });
+        });
 
-    if ($("#mapInfo").length == 0) {
-        $("body").append('<div id="mapInfo" onclick="$(this).fadeOut();"></div>');
-    }
-    // })();s
+
+    });
+    $("#mapInfo .info").off('click').on('click', function () {
+        $("#mapInfo").fadeOut();
+    });
+// })();s
 
     if (typeof MB === 'object') {
         MB.Core.spinner.start(this.container);
@@ -680,6 +699,9 @@ Map1.prototype.loadSquares = function (params, callback) {
 
     socketQuery(params, function (data) {
         data = JSON.parse(data);
+        if (typeof data['results'][0].extra_data !=='object') data['results'][0].extra_data = {};
+        if (data['results'][0].extra_data.CURRENCY) self.currency = data['results'][0].extra_data.CURRENCY;
+        if (data['results'][0].extra_data.DISCOUNT) self.DISCOUNT = jsonToObj(data['results'][0].extra_data.DISCOUNT);
         var DATA = jsonToObj(data['results'][0]);
         self.squares = [];
         for (var k in DATA) {
@@ -715,11 +737,7 @@ Map1.prototype.loadSquares = function (params, callback) {
             self.squares[index].enter_in_hall_status = (DATA[k].ENTER_IN_HALL_STATUS != undefined && DATA[k].ENTER_IN_HALL_STATUS != "") ? DATA[k].ENTER_IN_HALL_STATUS.replace(/\&lt\;br\&gt\;/g, '<br>') : "";
             self.squares[index].fundGroup = DATA[k].FUND_GROUP_NAME || '';
             self.squares[index].fundGroupID = DATA[k].FUND_GROUP_ID || '';
-            /*self.squares[index].fundGroupId = DATA[k].FUND_GROUP_ID;*/
             self.squares[index].priceGroup = DATA[k].PRICE_GROUP_NAME || '';
-            if (DATA[k].PRICE_GROUP_ID) {
-                console.log('DATA[k].PRICE_GROUP_ID', DATA[k].PRICE_GROUP_ID);
-            }
             self.squares[index].priceGroupID = DATA[k].PRICE_GROUP_ID || '';
             //self.squares[index].blocked = DATA[k].BLOCK_COLOR || "#c1c1c1";
             self.squares[index].blocked = DATA[k].BLOCK_COLOR || "0";
@@ -735,15 +753,18 @@ Map1.prototype.loadSquares = function (params, callback) {
             var pImg;
             switch (self.mode) {
                 case "iFrame":
-                    pImg = DATA[k].PLACE_IMG_URL || 'topView';
+                    pImg = (self.is_mobile)? 'topViewMobile' : DATA[k].PLACE_IMG_URL || 'topView';
                     break;
                 case "casher":
                 case "client_screen":
                     pImg = (self.squares[index].status !== 0 && (self.squares[index].blocked == undefined || self.squares[index].blocked == '0')) ? 'stroke_square' : 'fill_square';
                     break;
+                case "editor":
+                    pImg = 'fill_square_me';
+                    break;
                 default :
                     //pImg = (self.squares[index].status !== 0 && (self.squares[index].blocked == undefined || self.squares[index].blocked == '0')) ? 'stroke_square' : 'fill_square';
-                    pImg = 'fill_square';
+                    pImg = DATA[k].PLACE_IMG_URL || 'fill_square';
 
                     break;
             }
@@ -801,7 +822,9 @@ Map1.prototype.loadSquares = function (params, callback) {
 
         //self.loader_box.fadeOut(650);
 
-        var c1 = Math.round(Math.sqrt(self.squaresCount() / 2));
+        var param1 = (!isMobile.any())? 2 : 10;
+        var c1 = Math.round(Math.sqrt(self.squaresCount() / param1));
+        if (self.cWidth < 400) c1 = 1;
         self.layoutVCount = c1 || 10;
         self.layoutHCount = c1 || 10;
         console.log('Схема разделена на следующее кол-во частей:', self.layoutVCount * self.layoutHCount);
@@ -925,6 +948,32 @@ Map1.prototype.fillPoint = function (point, fillStyle, ctx) {
     ctx2.fillStyle = fillStyle || "#FFF";
     ctx2.fill();
 };
+Map1.prototype.drawLine = function (points,  strokeStyle, ctx) {
+    //return
+    if (points.length<2) return console.log('Требуется минимум две точки');
+    if (typeof points[0]!=='object') return console.log('Первая точка указана не корректно', points[0]);
+    if (typeof points[1]!=='object') return console.log('Вторая точка указана не корректно', points[1]);
+    var ctx2 = ctx || this.ctx;
+    ctx2.beginPath();
+    if (!ctx){
+        ctx2.moveTo(points[0].x * this.scaleCoeff + this.XCoeff, points[0].y * this.scaleCoeff + this.YCoeff);
+        for (var i = 1; i<points.length; i++) {
+            if (typeof points[i]!=='object') continue;
+            ctx2.lineTo(points[i].x * this.scaleCoeff + this.XCoeff, points[i].y * this.scaleCoeff + this.YCoeff);
+        }
+        //ctx2.arc(point.x * this.scaleCoeff + this.XCoeff, point.ypoint.y * this.scaleCoeff + this.YCoeff, 2, 0, 360);
+    }else{
+        ctx2.moveTo(points[0].x, points[0].y);
+        for (var i = 1; i<points.length; i++) {
+            if (typeof points[i]!=='object') continue;
+            ctx2.lineTo(points[i].x, points[i].y);
+        }
+    }
+
+    ctx2.closePath();
+    ctx2.strokeStyle = strokeStyle || "#FFF";
+    ctx2.stroke();
+};
 
 Map1.prototype.hexToRgb = function (hex) {
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -969,11 +1018,11 @@ Map1.prototype.loadSectors = function (params, callback) {
             break;
     }
 
-    self.setBgColor(self.zonesBgColor, 1000);
-
+    self.setBgColor(self.bgColorSectorMode || self.zonesBgColor, 1000);
     socketQuery(params.sectorO, function (data) {
         data = JSON.parse(data);
         var DATA = jsonToObj(data['results'][0]);
+
         self.sectors = [];
         for (var i in DATA) {
             if (self.oldMode == 'sector_only') DATA[i].FREE_PLACES = 1;
@@ -982,6 +1031,8 @@ Map1.prototype.loadSectors = function (params, callback) {
                 action_group_id: DATA[i].AREA_GROUP_ID,
                 name: DATA[i].NAME,
                 free_places: DATA[i].FREE_PLACES,
+                seat_free_places: DATA[i].SEAT_FREE_PLACES,
+                no_seat_free_places: DATA[i].NO_SEAT_FREE_PLACES,
                 status: !!DATA[i].FREE_PLACES,
                 min_price: DATA[i].MIN_PRICE,
                 max_price: DATA[i].MAX_PRICE,
@@ -1034,7 +1085,7 @@ Map1.prototype.backToSectors = function (callback) {
         delete this.sectors[i].lighted;
     }
     this.container.trigger("move_hint", [0, 0]);
-    this.setBgColor(this.zonesBgColor);
+    this.setBgColor(this.bgColorSectorMode || this.zonesBgColor);
     this.drawSectorsTimer();
     if (typeof callback == "function") {
         callback();
@@ -1295,6 +1346,14 @@ Map1.prototype.loadRenderItems = function (params, callback) {
             }
         };
 
+        if (Object.keys(LAYERS).length === 0){
+            self.fillRenderList(objectList, function () {
+                if (typeof callback == "function")
+                    callback();
+            });
+            return;
+        }
+
         for (var l in LAYERS) {
             var where;
             if (where_field)
@@ -1418,15 +1477,18 @@ Map1.prototype.updateSquare = function (square, indexName) {
     var pImg;
     switch (this.mode) {
         case "iFrame":
-            pImg = this.squares[index].PLACE_IMG_URL || 'topView';
+            pImg = (this.is_mobile)? 'topViewMobile' : this.squares[index].PLACE_IMG_URL || 'topView';
             break;
         case "client_screen":
         case "casher":
             pImg = (this.squares[index].status !== 0 && (this.squares[index].blocked == undefined || this.squares[index].blocked == '0')) ? 'stroke_square' : 'fill_square';
             break;
+        case "editor":
+            pImg = 'fill_square_me';
+            break;
         default :
             //pImg = (this.squares[index].status === 1 && (this.squares[index].blocked == undefined || this.squares[index].blocked == '0')) ? 'stroke_square' : 'fill_square';
-            pImg = 'fill_square';
+            pImg = square.PLACE_IMG_URL || 'fill_square';
             break;
     }
     this.squares[index].place_image_url = pImg;
@@ -1623,9 +1685,13 @@ Map1.prototype.roundPlus = function (x, n) { //x - число, n - количе�
  * @param callback
  * @returns {*}
  */
-Map1.prototype.setScaleCoff = function (callback) {
-    if (typeof callback !== "function") callback = function () {
-    };
+Map1.prototype.setScaleCoff = function (obj,callback) {
+    if (arguments.length==1){
+        callback = obj;
+        obj = {}
+    }
+    if (typeof callback !== "function") callback = function () {};
+    if (typeof obj !== "object") obj = {};
 
     var bw = this.cWidth;
     var bh = this.cHeight;
@@ -1668,6 +1734,7 @@ Map1.prototype.setScaleCoff = function (callback) {
 
     this.scaleCoeff -= minusScale;
     this.scaleCoeff = this.roundPlus(this.scaleCoeff, 3);
+    this.scaleCoeff = obj.scaleCoeff || this.scaleCoeff;
     this.startScaleCoeff = this.scaleCoeff;
     /*var dx = Math.abs(this.maxX+this.squareWH - this.minX);
      var dy = Math.abs(this.maxY+this.squareWH - this.minY);*/
@@ -1924,7 +1991,7 @@ Map1.prototype.removeFromSelection = function (ids, noDraw, callback) {
         callback();
     //this.render();
     this.container.trigger('removeFromSelection', [this.selection, ids]);
-    this.container.trigger('addToSelection', [this.selection]);
+    //this.container.trigger('addToSelection', [this.selection]); // Не знаю зачем это
     this.mapInfo.selection = 0;
     this.showInfo(this.mapInfo);
 };
@@ -2033,7 +2100,7 @@ Map1.prototype.drawSectorsTimer = function () {
     //return;
     setTimeout(function () {
         self.drawSectorsTimer.call(self);
-    }, 1000 / 60);
+    }, 60 / 60);
 
 };
 // Если ничего нет - возвращаем обычный таймер
@@ -2087,6 +2154,15 @@ Map1.prototype.canvasRadiusFill = function (x, y, w, h, tl, tr, br, bl, color, c
     if (my_ctx.fillStyle != color) my_ctx.fillStyle = color;
     my_ctx.fill();
 };
+Map1.prototype.canvasCircleFill = function (x, y, w, h, tl, tr, br, bl, color, ctx) {
+    var my_ctx = ctx || this.ctx;
+    var r = x + w,
+        b = y + h;
+    my_ctx.beginPath();
+    my_ctx.arc(x + w/2, y + h/2, h/2, 0, 2 * Math.PI, false);
+    if (my_ctx.fillStyle != color) my_ctx.fillStyle = color;
+    my_ctx.fill();
+};
 Map1.prototype.renderSquareImage = function (square, options) {
     if (typeof square !== "object") {
         return false;
@@ -2121,7 +2197,7 @@ Map1.prototype.renderSquareImage = function (square, options) {
      }
      ]*/
     var render_list = square.render_list || (typeof color1 == 'object') ?
-        function () {
+        (function () {
             var arr = [];
             for (var i in color1) {
                 arr.push({
@@ -2130,9 +2206,9 @@ Map1.prototype.renderSquareImage = function (square, options) {
                     y: square.y + 10 * i
                 });
             }
-            arr[0].drawText = true;
+            if (arr.length>0) arr[0].drawText = true;
             return arr;
-        }
+        })()
         : [{
         color: color1,
         drawText: true
@@ -2161,9 +2237,11 @@ Map1.prototype.renderSquareImage = function (square, options) {
             }];
         }
         var place_image_url = item.place_image_url || square.place_image_url;
+        if (map.simpleSquare) place_image_url = 'fill_square';
         if (lightedNow) {
             place_image_url = (place_image_url !== 'fill_square')?'fill_square' : 'stroke_square';
         }
+
         h = options.h || map.round((item.h || square.h) * map.scaleCoeff, 1);
         w = options.w || map.round((item.w || square.w) * map.scaleCoeff, 1);
         h1 = options.h || map.round((item.h || square.h) * scale, 1);
@@ -2190,38 +2268,44 @@ Map1.prototype.renderSquareImage = function (square, options) {
             sqImage = this.sqTamplete15;
         }
         var color = item.color;
-        var alias1 = 'sq_' + status + lighted + blocked + color + color2 + w1 + sqImage.src;
+        var alias1 = 'sq_' + status + lighted + blocked + color + color2 + w1;
+        if (typeof sqImage === 'object') alias1 += sqImage.src;
+
         var aliasHover = 'square_hover.png';
         var newCanvas;
-        if (typeof this.pictures.items[alias1] !== "object") {
-            this.pictures.items[alias1] = document.createElement('canvas');
-            newCanvas = this.pictures.items[alias1];
+        var renderImage = this.pictures.items[alias1];
+        if (typeof renderImage !== "object") {
+            renderImage = document.createElement('canvas');
+            newCanvas = renderImage;
             newCanvas.width = w1;
             newCanvas.height = h1;
             var ctx2 = newCanvas.getContext('2d');
-            ctx2.drawImage(sqImage, 0, 0, w1, h1);
-            ctx2.globalCompositeOperation = 'source-in';
+            if (sqImage){
+                ctx2.drawImage(sqImage, 0, 0, w1, h1);
+                ctx2.globalCompositeOperation = 'source-in';
+            }
             ctx2.fillStyle = color;
             ctx2.fillRect(0, 0, w1, h1);
-            if (!options.lower16) {
+            if (!options.lower16 && sqImage) {
                 ctx2.globalCompositeOperation = 'lighter';
                 ctx2.drawImage(sqImage, 0, 0, w1, h1);
             }
+            if (!map.doNotUseSquareCache) this.pictures.items[alias1] = renderImage;
         }
         if (rotation !== 0) {
             ctx.translate(x + w / 2, y + h / 2);
             ctx.rotate(this.degToRad(rotation));
-            map.ctx.drawImage(this.pictures.items[alias1], -w / 2, -h / 2, w, h);
+            map.ctx.drawImage(renderImage, -w / 2, -h / 2, w, h);
             ctx.rotate(-this.degToRad(rotation));
             ctx.translate(-x - w / 2, -y - h / 2);
         } else {
-            map.ctx.drawImage(this.pictures.items[alias1], x, y, w, h);
+            map.ctx.drawImage(renderImage, x, y, w, h);
         }
 
         if (map.moving || options.lower16) {
             return;
         }
-        if (!item.drawText) continue;
+        if (!item.drawText || map.noLabelDraw) continue;
         var place = square.place;
         var pCount = place.length;
         var alias2 = 'label_place_only' + place + textColor + w1;
@@ -2269,9 +2353,108 @@ Map1.prototype.renderSquareImage = function (square, options) {
         map.ctx.drawImage(this.pictures.items[alias2], x, y, w, h);
     }
 };
+Map1.prototype.drawOneSquareMobile = function(key,callback){
+    if (typeof callback!=="function") callback=function(){};
+    var wh = this.squareWH;
+    var cw = this.cWidth;
+    var ch = this.cHeight;
+    var x = Math.round((this.squares[key].x)*this.scaleCoeff+this.XCoeff);
+    var y = Math.round((this.squares[key].y)*this.scaleCoeff+this.YCoeff);
+    var w = +this.squares[key].w;
+    var h = +this.squares[key].h;
+    var scaledW = Math.round(w*this.scaleCoeff);
+    var scaledH = Math.round(h*this.scaleCoeff);
+
+    if (x<0 || y<0 || x>cw-(cw*2/100) || y>ch-(ch*2/100))
+        return;
+
+    var color = this.squares[key].color0;
+    if (this.squares[key].lighted!=undefined)
+        color = this.squares[key].colorSelected;
+    var textColor = this.squares[key].textColor;
+
+    //if (!this.moving)
+    //    this.canvasCircleFill(x+(scaledW/60),y+(scaledH/40),scaledW,scaledH,
+    //        Math.round(w/10*this.scaleCoeff),
+    //        Math.round(w/10*this.scaleCoeff),
+    //        Math.round(w/10*this.scaleCoeff),
+    //        Math.round(w/10*this.scaleCoeff),
+    //        this.squares[key].colorShadow);
+
+    this.canvasCircleFill(x,y,scaledW,scaledH,
+        Math.round(w/10*this.scaleCoeff),
+        Math.round(w/10*this.scaleCoeff),
+        Math.round(w/10*this.scaleCoeff),
+        Math.round(w/10*this.scaleCoeff),
+        color);
+
+
+
+    if (!this.moving){
+        if (this.ctx.font != "normal "+Math.round((w*0.5)*this.scaleCoeff)+"px 'Arial'"){
+            this.ctx.font =  "normal "+Math.round((w*0.5)*this.scaleCoeff)+"px 'Arial'";
+        }
+
+
+        if (this.ctx.fillStyle!=textColor)
+            this.ctx.fillStyle = textColor;
+
+
+        //this.ctx.fillText(this.squares[key].line,x+((w/(w/4))*this.scaleCoeff),y+((h/2.1)*this.scaleCoeff));
+        //if (this.squares[key].place.length == 1){
+        //    this.ctx.fillText(this.squares[key].place,x+((w-(w/3*0.9))*this.scaleCoeff),y+((h-h/10)*this.scaleCoeff));
+        //}else if (this.squares[key].place.length == 2){
+        //    this.ctx.fillText(this.squares[key].place,x+((w-1.5*(w/2.3*0.9))*this.scaleCoeff),y+((h-h/15)*this.scaleCoeff));
+        //}else if (this.squares[key].place.length == 3){
+        //    this.ctx.fillText(this.squares[key].place,x+((w-2.5*(w/2*0.9))*this.scaleCoeff),y+((h-h/10)*this.scaleCoeff));
+        //}
+
+
+        //this.ctx.fillText(this.squares[key].place,(x - w) + ((w*0.1)*this.scaleCoeff),(y - h) + ((h*0.1)*this.scaleCoeff));
+        //this.ctx.fillText(this.squares[key].place,x+((w/(w/4))*this.scaleCoeff),y+((h/2.1)*this.scaleCoeff));
+        //this.ctx.fillText(this.squares[key].place,x+(5*this.scaleCoeff),y+((h/1.35)*this.scaleCoeff));
+
+        //this.xc = this.xc || 6;
+        //this.xy = this.yc || 1.35;
+        //this.squares[key].place = '220';
+        if (this.squares[key].place.length == 1){
+            if (this.squares[key].place == "1")
+                this.ctx.fillText(this.squares[key].place,x+(11*this.scaleCoeff),y+((h/1.46)*this.scaleCoeff));
+            else
+                this.ctx.fillText(this.squares[key].place,x+(12*this.scaleCoeff),y+((h/1.46)*this.scaleCoeff));
+        }else if (this.squares[key].place.length == 2){
+            if (this.squares[key].place.charAt(0) == '1' && this.squares[key].place != "11")
+                this.ctx.fillText(this.squares[key].place,x+(6*this.scaleCoeff),y+((h/1.46)*this.scaleCoeff));
+            else
+                this.ctx.fillText(this.squares[key].place,x+(7*this.scaleCoeff),y+((h/1.46)*this.scaleCoeff));
+        }else if (this.squares[key].place.length == 3){
+            this.ctx.fillText(this.squares[key].place,x+(4*this.scaleCoeff),y+((h/1.46)*this.scaleCoeff));
+        }
+
+
+        //if (this.squares[key].place.length == 1){
+        //    this.ctx.fillText(this.squares[key].place,x+((w-(w/3*0.9))*this.scaleCoeff),y+((h-h/10)*this.scaleCoeff));
+        //}else if (this.squares[key].place.length == 2){
+        //    this.ctx.fillText(this.squares[key].place,x+((w-1.5*(w/2.3*0.9))*this.scaleCoeff),y+((h-h/15)*this.scaleCoeff));
+        //}else if (this.squares[key].place.length == 3){
+        //    this.ctx.fillText(this.squares[key].place,x+((w-2.5*(w/2*0.9))*this.scaleCoeff),y+((h-h/10)*this.scaleCoeff));
+        //}
+
+        /* this.ctx.fillText(this.squares[key].line,x+((w/(w/4))*this.scaleCoeff),y+((h/3)*this.scaleCoeff));
+         if (this.squares[key].place.length == 1){
+         this.ctx.fillText(this.squares[key].place,x+((w-(w/3*0.9))*this.scaleCoeff),y+((h-h/10)*this.scaleCoeff));
+         }else if (this.squares[key].place.length == 2){
+         this.ctx.fillText(this.squares[key].place,x+((w-1.5*(w/3*0.9))*this.scaleCoeff),y+((h-h/10)*this.scaleCoeff));
+         }else if (this.squares[key].place.length == 3){
+         this.ctx.fillText(this.squares[key].place,x+((w-2.5*(w/3*0.9))*this.scaleCoeff),y+((h-h/10)*this.scaleCoeff));
+         }*/
+    }
+    return callback();
+};
 Map1.prototype.drawOneSquare = function (key, options) {
     if (typeof callback !== "function") callback = function () {
     };
+    if (this.is_mobile || true) return this.drawOneSquareMobile(key, callback);
     return this.renderSquareImage(this.squares[key], options);
 };
 Map1.prototype.animate = function (opts, callback) {
@@ -2419,6 +2602,8 @@ Map1.prototype.drawOneSector = function (sector, params) {
         }
     }
     if (drawNow) {
+        ctx.lineWidth = 2;
+        ctx.stroke();
         ctx.fill();
         /* ctx.shadowOffsetX = 0;
          ctx.shadowOffsetY = 0;
@@ -2445,22 +2630,26 @@ if (this.mode!=='sector' || this.moving) return;
     this.drawObjects();
     for (var i in sectors) {
         if (sectors[i].light > 0 && sectors[i].opacity < 2) {
-            sectors[i].opacity += 0.1;
+            sectors[i].opacity += self.sectorLightSpeedPlus || 1; // +0.1
         } else if (sectors[i].light < 0 && sectors[i].opacity > 0) {
-            sectors[i].opacity -= 0.15;
+            sectors[i].opacity -= self.sectorLightSpeedMinus || 1;  //0.15
         } else if (sectors[i].light == 0) {
             sectors[i].opacity = 1;
         }
         var color;
+        var colorFill;
         if (+sectors[i].free_places !== 0 || self.oldMode == "admin" || self.oldMode == "casher") {
+            colorFill = 'rgba(' + sectors[i].color.join(',') + ',' + sectors[i].opacity/5 + ')';
             color = 'rgba(' + sectors[i].color.join(',') + ',' + sectors[i].opacity + ')';
         } else {
             //color = 'rgba(' + sectors[i].color2.join(',') + ',' + 1 + ')';
+            colorFill = 'rgba(' + sectors[i].color2.join(',') + ',' + sectors[i].opacity/5 + ')';
             color = 'rgba(' + sectors[i].color2.join(',') + ',' + sectors[i].opacity + ')';
         }
         var params2 = {
             drawNow: true,
-            fillStyle: color
+            fillStyle: colorFill,
+            strokeStyle: color
         };
 
 
@@ -2778,7 +2967,7 @@ Map1.prototype.showInfo = function (obj) {
     for (var i in obj) {
         s += i + ': ' + obj[i] + '<br>';
     }
-    $("#mapInfo").html(s);
+    $("#mapInfo .info").html(s);
 };
 Map1.prototype.showHideInfoBox = function () {
 
@@ -2795,6 +2984,8 @@ Map1.prototype.showStatus = function (status) {
     var line_title = status.status_line_title || 'Ряд';
     var place_title = status.status_place_title || 'Место';
 	var hint = this.hint;
+    var self = this;
+
 
 	hint.find(".added").removeClass("added");
 
@@ -2817,14 +3008,19 @@ Map1.prototype.showStatus = function (status) {
 	    hint.find("#status_col").text("");
 
     if (status.status_cost != undefined && status.status_cost != "")
-		hint.find("#status_cost").addClass("added").addClass("bold").text(status.status_cost + " руб.");
+		{
+
+            hint.find("#status_cost").addClass("added").addClass("bold").text(status.status_cost + " "+ this.currency);
+        }
 	else if (status.status_min_price != undefined && status.status_min_price != "" && status.status_max_price != undefined && status.status_min_price != "")
         if(status.status_min_price != status.status_max_price) {
-	        hint.find("#status_cost").addClass("added").addClass("bold").text(status.status_min_price + " - " + status.status_max_price + " руб.");
+	        hint.find("#status_cost").addClass("added").addClass("bold").text(status.status_min_price + " - " + status.status_max_price + " "+ this.currency);
         }
-		else hint.find("#status_cost").addClass("added").addClass("bold").text(status.status_max_price + " руб.");
+		else hint.find("#status_cost").addClass("added").addClass("bold").text(status.status_max_price + " "+ this.currency);
+    else if (this.mode == 'iFrame')
+        hint.find("#status_cost").addClass("added").addClass("bold").text("Недоступно");
     else
-		hint.find("#status_cost").text("");
+        hint.find("#status_cost").text("");
 
     if (status.status_fund != undefined && status.status_fund != "")
 	    hint.find("#status_fund").addClass("added").text("Фонд: " + status.status_fund);
@@ -2858,12 +3054,38 @@ Map1.prototype.showStatus = function (status) {
         hint.find("#status_not_entered_places").text("");
 
     if (hint.css('display') == 'none' || +hint.css("opacity") < 1)
-	    hint.stop(true, true).fadeIn(450);
+	    hint.stop(true, true).fadeIn(450, function () {
+            var h = hint.height();
+            var w = hint.width();
+            self.containerOffsetLeft = self.containerOffsetLeft || self.container.offset().left;
+            self.containerOffsetTop = self.containerOffsetTop || self.container.offset().top;
+            var t = hint.offset().top - self.containerOffsetTop;
+            var l = hint.offset().left - self.containerOffsetLeft;
+            var new_t, new_l;
+            if (t + h > self.cHeight){
+                //new_t = self.cHeight + self.containerOffsetTop - h;
+                new_t = self.cHeight - h;
+            }
+            if (l + w > self.cWidth){
+                //new_l = self.cWidth + self.containerOffsetLeft - w;
+                new_l = self.cWidth - w;
+            }
+            if (new_t || new_l){
+                new_t = new_t || t;
+                new_l = new_l || l;
+                if (new_l < l - 20 && new_t < t) {
+                    new_l = new_l - w - 200;
+                }
+                hint.animate({top:new_t, left:new_l},100);
+                hint.data('fix',true);
+            }
+        });
 
 };
 Map1.prototype.hideControl = function (duration) {
     var self = this;
 	var hint = self.hint;
+    //console.log('duration', duration);
 
     window.clearTimeout(this.hintTimer);
     this.hintTimer = window.setTimeout(function () {
@@ -2876,6 +3098,7 @@ Map1.prototype.hideControl = function (duration) {
                 self.hoverSquare = null;
                 self.render();
             }*/
+            hint.data('fix',false);
             self.hintState = false;
         }
     }, duration);
@@ -2885,12 +3108,12 @@ Map1.prototype.hideStatus = function () {
         this.hideControl(arguments[0]);
     } else {
         if (!this.hintState) return;
-        this.hideControl(650);
+        this.hideControl(this.statusDuration || 650);
     }
     this.hintState = false;
 };
 Map1.prototype.moveStatus = function (x, y) {
-    this.hint.css({top: y + "px", left: x + "px"});
+    if (!this.hint.data('fix')) this.hint.css({top: y + "px", left: x + "px"});
 };
 
 
@@ -3108,6 +3331,7 @@ Map1.prototype.setEvents = function () {
 
     this.container.on("leave_container", function (e) {
         self.mouseKey = 0;
+        self.container.trigger("hide_hint", 1);
         if (self.moving) {
             window.setTimeout(function () {
                 self.moving = false;
@@ -3130,6 +3354,9 @@ Map1.prototype.setEvents = function () {
 
 	    if(self.mode == "sector") {
 		    item = self.mouseOnSector(x, y);
+            if (item){
+                if (+item.max_price == 0) item.textStatus = 'Билетов нет.';
+            }
 	    }
 	    else {
 		    item = self.squares[self.mouseOnElement(x, y)];
@@ -3141,7 +3368,10 @@ Map1.prototype.setEvents = function () {
         else {
             self.container.trigger("hide_hint");
         }
-        self.container.trigger("move_hint", [x + 30, y]);
+        self.container.trigger("move_hint", [x + 50, y + 10]);
+    });
+    this.hint.off('mouseenter').on('mouseenter', function (e) {
+        self.container.trigger("hide_hint", 1);
     });
     this.container.on("move_map", function (e, x, y) {
 
@@ -3272,7 +3502,7 @@ Map1.prototype.setEvents = function () {
         self.counterSelect++;
         self.selecting = 1;
         var square;
-//        alert('adsa '+self.counterSelect);
+//        bootbox.alert('adsa '+self.counterSelect);
         if (arguments.length == 3 && y === true) {
             /// если функция фызвана с двумя аргументами (square, true)
             square = x;
@@ -3343,7 +3573,7 @@ Map1.prototype.setEvents = function () {
                 return;
             }
             sector.selected = true;
-            self.container.trigger('sector_click');
+            self.container.trigger('sector_click',[sector]);
         }
     });
     this.container.on("select_sector", function (e, x, y) {
@@ -3415,13 +3645,13 @@ Map1.prototype.setEvents = function () {
 
             /*  sectorId = sector.action_group_id;*/
             sector.light = 1;
-            console.log('sectorMouseEnter', sector);
+            //console.log('sectorMouseEnter', sector);
             $(document).trigger('sectorMouseEnter',[sector]);
         } else {
             delete self.selectedSectorId;
             self.container.css({cursor: "default"});
             $(document).trigger('sectorMouseLeave',[sector]);
-            console.log('sectorMouseLeave');
+            //console.log('sectorMouseLeave');
         }
     };
 
@@ -3516,11 +3746,11 @@ Map1.prototype.setEvents = function () {
         //self.reLoad();
     });
     this.container.on("click", function (e) {
-        if (self.moving) return;
+        if (self.moving || isMobile.iOS()) return;
+        self.isClicked = true;
         e = self.fixEvent(e);
         var x = e.pageX;
         var y = e.pageY;
-
 
 
         self.mouseKey = e.which;
@@ -3797,6 +4027,7 @@ Map1.prototype.setEvents = function () {
 
     });
     this.container.on("mousedown", function (e) {
+        self.container.trigger("hide_hint", 1);
         e = self.fixEvent(e);
         var x = e.pageX;
         var y = e.pageY;
@@ -3933,7 +4164,7 @@ Map1.prototype.setEvents = function () {
 	    if(elem.closest("#mapTopHint").length) return;
 
         if (self.mousemovingFirst) {
-            self.container.trigger("hide_hint", 10);
+            //self.container.trigger("hide_hint", 10);
             self.mousemovingFirst = false;
         }
         /**** ******/
@@ -4308,9 +4539,13 @@ Map1.prototype.setEvents = function () {
         self.container.trigger("leave_container");
         return false;
     });
-    $('body').find('*').not(self.container).on("mouseenter", function (e) {
-        self.container.trigger("leave_container");
-    });
+
+    if (!isMobile.any()) {
+        $('body').find('*').not(self.container).on("mouseenter", function (e) {
+            self.container.trigger("leave_container");
+        });
+    }
+
     this.container.find('#canvas1').on("mouseenter", function (e) {
         self.container.attr("tabindex", "1").focus();
         self.container.trigger("leave_container");
@@ -4322,6 +4557,7 @@ Map1.prototype.setEvents = function () {
         return false;
     });
     this.container.off("keydown").on("keydown", function (e) {
+        self.container.trigger("hide_hint", 1);
         self.shiftStateOld = self.shiftState;
         if (e.which >= 37 && e.which <= 40) {
             return;
@@ -4367,12 +4603,12 @@ Map1.prototype.setEvents = function () {
         
 
         if (self.shiftState == 70 && self.shiftStateOld == 16){
-            var container = self.container[0];
-            if(fullScreenStatus()){
+            var container = $('#multibooker-widget-wrapper')[0] || self.container[0];
+            if(self.fullScreenStatus()){
                 // if we are already in fullscreen, exit
-                cancelFullScreen(container);
+                self.cancelFullScreen(container);
             }else{
-                launchFullScreen(container);
+                self.launchFullScreen(container);
             }
 
             setTimeout(function(){
@@ -4504,7 +4740,6 @@ Map1.prototype.setEvents = function () {
 
     if (isMobile.any()) {
         /**-----TOUCH EVENTS--------*/
-
         var myOptions = {};
 
         var touchEvents = new Hammer(this.container[0], myOptions);
@@ -4513,7 +4748,7 @@ Map1.prototype.setEvents = function () {
         //touchEvents.get('rotate').set({ enable: true });
         touchEvents.on('panstart', function (ev) {
             if (self.mousemovingFirst) {
-                self.container.trigger("hide_hint", 400);
+                self.container.trigger("hide_hint", self.statusDuration || 400);
                 self.mousemovingFirst = false;
             }
             var s = '';
@@ -4533,7 +4768,7 @@ Map1.prototype.setEvents = function () {
 
 
         touchEvents.on('tap', function (ev) {
-
+            function tap() {
             var x = ev.pointers[0].pageX - self.container.offset().left;
             var y = ev.pointers[0].pageY - self.container.offset().top;
             switch (self.mode) {
@@ -4542,18 +4777,38 @@ Map1.prototype.setEvents = function () {
                     self.container.trigger("go_to_sector", [x, y]);
                     break;
                 case "iFrame":
-                    if (isMobile.iOS()) {
-//                        return;
+            function tap() {
+            var x = ev.pointers[0].pageX - self.container.offset().left;
+            var y = ev.pointers[0].pageY - self.container.offset().top;
+            switch (self.mode) {
+                case "sector":
+                    //self.container.trigger("select_sector", [x, y]);
+                    self.container.trigger("go_to_sector", [x, y]);
+                    break;
+                case "iFrame":
                         self.container.trigger("squares_select", [x, y, true]);
                         return false;
+                        break;
+                    default:
+                        self.container.trigger("squares_select", [x, y, true]);
+                        self.container.trigger("sendSelection");
+                        break;
+                }
+            }
+
+            if (isMobile.iOS()) {
+                tap();
+            }else{
+                setTimeout(function () {
+                    if (self.isClicked){
+                        self.isClicked = false;
+                        return;
+                    }else{
+                        tap();
                     }
-//                    if(isMobile){
-//                        if(isMobile.isAndroid){
-//                            if (isMobile.isAndroid()) {
-//                                return false;
-//                            }
-//                        }
-//                    }
+                }, 50);
+            }
+
 
 
                     break;
@@ -4562,6 +4817,23 @@ Map1.prototype.setEvents = function () {
                     self.container.trigger("sendSelection");
                     break;
             }
+            }
+
+            if (isMobile.iOS()) {
+                tap();
+            }else{
+                setTimeout(function () {
+                    if (self.isClicked){
+                        self.isClicked = false;
+                        return;
+                    }else{
+                        tap();
+                    }
+                }, 50);
+            }
+
+
+
         });
         touchEvents.on('pan', function (ev) {
             self.container.trigger("move_map", [ev.pointers[0].pageX, ev.pointers[0].pageY]);
@@ -4636,10 +4908,21 @@ Map1.prototype.resize = function (params) {
         this.container.css({width: "100%", height: "100%"});
         params = {};
     }
-    var cW = params.width || this.container.outerWidth();
-    var cH = params.height || this.container.outerHeight();
+    var cW = params.width || this.container.outerWidth() || this.cWidth;
+    var cH = params.height || this.container.outerHeight() || this.cHeight;
+    var minusH = 0;
+    this.container.parent('.mbw-content').nextAll().each(function (index, elem) {
+        if (/*$(elem).css('position')=='absolute' || */$(elem).css('display')=='none') return;
+        minusH += $(elem).height();
+    });
+    this.container.parent('.mbw-content').prevAll().each(function (index, elem) {
+        if (/*$(elem).css('position')=='absolute' || */$(elem).css('display')=='none') return;
+        minusH += $(elem).height();
+    });
+    cH -= minusH;
     this.setSize.call(this, {cWidth: cW, cHeight: cH});
-    this.container.css({width: this.containerWidth + "px", height: this.containercHeight + "px"});
+    //this.container.css({width: this.containerWidth + "px", height: this.containercHeight + "px"});
+    this.container.css({width: this.cWidth + "px", height: this.cHeight + "px"});
     this.cnvBackground.attr({width: this.cWidth, height: this.cHeight});
     this.cnv0.attr({width: this.cWidth, height: this.cHeight});
     this.cnv1.attr({width: this.cWidth, height: this.cHeight});
@@ -4668,7 +4951,33 @@ Map1.prototype.resize = function (params) {
 		});
 	}
 };
-
+Map1.prototype.fullScreenStatus = function () {
+    return	document.fullscreen ||
+        document.mozFullScreen ||
+        document.webkitIsFullScreen;
+};
+Map1.prototype.launchFullScreen = function (element) {
+    element = element || this.container[0];
+    if (element.requestFullScreen) {
+        element.requestFullScreen();
+    } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+    } else if (element.webkitRequestFullScreen) {
+        element.webkitRequestFullScreen();
+    }
+};
+Map1.prototype.cancelFullScreen = function () {
+    if (document.exitFullscreen) {
+        document.exitFullscreen();
+    }
+    else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+    }
+    else if (document.webkitCancelFullScreen) {
+        document.webkitCancelFullScreen();
+    }
+    this.resize();
+};
 var isMobile = {
     Android: function () {
         return navigator.userAgent.match(/Android/i);
@@ -4723,55 +5032,56 @@ setTimeout(function () {
 
 
 /**** КОНЕЦ  Controller   *****/
-function fullScreenStatus(){
-    return	document.fullscreen ||
-        document.mozFullScreen ||
-        document.webkitIsFullScreen;
-}
-function launchFullScreen(element) {
-    if (element.requestFullScreen) {
-        element.requestFullScreen();
-    } else if (element.mozRequestFullScreen) {
-        element.mozRequestFullScreen();
-    } else if (element.webkitRequestFullScreen) {
-        element.webkitRequestFullScreen();
-    }
-}
-function cancelFullScreen(){
-    if (document.exitFullscreen) {
-        document.exitFullscreen();
-    }
-    else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-    }
-    else if (document.webkitCancelFullScreen) {
-        document.webkitCancelFullScreen();
-    }
-}
+//function fullScreenStatus(){
+//    return	document.fullscreen ||
+//        document.mozFullScreen ||
+//        document.webkitIsFullScreen;
+//}
+//function launchFullScreen(element) {
+//    if (element.requestFullScreen) {
+//        element.requestFullScreen();
+//    } else if (element.mozRequestFullScreen) {
+//        element.mozRequestFullScreen();
+//    } else if (element.webkitRequestFullScreen) {
+//        element.webkitRequestFullScreen();
+//    }
+//}
+//function cancelFullScreen(){
+//    if (document.exitFullscreen) {
+//        document.exitFullscreen();
+//    }
+//    else if (document.mozCancelFullScreen) {
+//        document.mozCancelFullScreen();
+//    }
+//    else if (document.webkitCancelFullScreen) {
+//        document.webkitCancelFullScreen();
+//    }
+//}
 
 
 // Выход из полноэкранного режима
-function cancelFullscreen() {
-    if (document.cancelFullScreen) {
-        document.cancelFullScreen();
-    } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-    } else if (document.webkitCancelFullScreen) {
-        document.webkitCancelFullScreen();
-    }
-}
+//function cancelFullscreen() {
+//    if (document.cancelFullScreen) {
+//        document.cancelFullScreen();
+//    } else if (document.mozCancelFullScreen) {
+//        document.mozCancelFullScreen();
+//    } else if (document.webkitCancelFullScreen) {
+//        document.webkitCancelFullScreen();
+//    }
+//
+//}
 
-var onfullscreenchange = function (e) {
-    var fullscreenElement =
-        document.fullscreenElement ||
-        document.mozFullscreenElement ||
-        document.webkitFullscreenElement;
-    var fullscreenEnabled =
-        document.fullscreenEnabled ||
-        document.mozFullscreenEnabled ||
-        document.webkitFullscreenEnabled;
-    console.log('fullscreenEnabled = ' + fullscreenEnabled, ',  fullscreenElement = ', fullscreenElement, ',  e = ', e);
-}
+//var onfullscreenchange = function (e) {
+//    var fullscreenElement =
+//        document.fullscreenElement ||
+//        document.mozFullscreenElement ||
+//        document.webkitFullscreenElement;
+//    var fullscreenEnabled =
+//        document.fullscreenEnabled ||
+//        document.mozFullscreenEnabled ||
+//        document.webkitFullscreenEnabled;
+//    console.log('fullscreenEnabled = ' + fullscreenEnabled, ',  fullscreenElement = ', fullscreenElement, ',  e = ', e);
+//}
 
 // Событие об изменениии режима
 /*el.addEventListener("webkitfullscreenchange", onfullscreenchange);
@@ -4779,7 +5089,7 @@ var onfullscreenchange = function (e) {
  el.addEventListener("fullscreenchange",       onfullscreenchange);*/
 
 
-mergeSchemes = function (id1) {
+mergeSchemes = function (id1, id2) {
 //      933
     var count = 0;
     var squareO1 = {
@@ -4787,7 +5097,7 @@ mergeSchemes = function (id1) {
         object: "hall_scheme_item",
         sid: MB.User.sid,
         params: {
-            hall_scheme_id: 1272
+            hall_scheme_id: id1 || 1272
         }
     };
     socketQuery(squareO1, function (data) {
@@ -4808,7 +5118,7 @@ mergeSchemes = function (id1) {
             object: "hall_scheme_item",
             sid: MB.User.sid,
             params: {
-                hall_scheme_id: 1215
+                hall_scheme_id: id2 || 1215
             }
         };
         socketQuery(squareO2, function (data) {
