@@ -146,15 +146,19 @@
             callback: function () {
                 var sel = tableInstance.ct_instance.getIndexesByData(true);
                 var id = tableInstance.data.data[sel]['HALL_SCHEME_ID'];
-                var titlePrice = tableInstance.data.data[sel]['PRICE_ZONE'] + ' для ' + tableInstance.data.data[sel]['NAME'];
+                //var titlePrice = tableInstance.data.data[sel]['PRICE_ZONE'] + ' для ' + tableInstance.data.data[sel]['NAME'];
+                var titlePrice = 'Редактор схемы';
 
                 socketQuery({
                     command: "get",
                     object: "hall_scheme",
-                    params: {where: "hall_scheme_id = " + id}
+                    params:
+                    {
+                        param_where: id
+                    }
                 }, function (data) {
-                    var obj = socketParse(data);
-                    var hall_id = obj[0].HALL_ID;
+                    //var obj = socketParse(data);
+                    var hall_id = data.hall_id; //obj[0].HALL_ID;
                     MB.Core.switchModal({
                         type: "content",
                         filename: "mapEditorOld",
@@ -189,6 +193,41 @@
                     MB.Core.switchModal({
                         type: "content",
                         filename: "placeGroups",
+                        isNew: true,
+                        params: {
+                            hall_scheme: tableInstance.data.data[sel],
+                            hall_scheme_id: id,
+                            hall_id: hall_id,
+                            hall_scheme_res: obj,
+                            id: id,
+                            scheme: 'hall_scheme',
+                            title: title
+                        }
+                    });
+                });
+            }
+        },
+        {
+            name: 'option12',
+            title: 'Run scheme editor',
+            disabled: function () {
+                return false;
+            },
+            callback: function () {
+                var sel = tableInstance.ct_instance.getIndexesByData(true);
+                var id = tableInstance.data.data[sel]['HALL_SCHEME_ID'];
+                var title = 'Редактор схема зала ' + tableInstance.data.data[sel]['NAME'];
+
+                socketQuery({
+                    command: "get",
+                    object: "hall_scheme",
+                    params: {where: "hall_scheme_id = " + id}
+                }, function (data) {
+                    var obj = socketParse(data);
+                    var hall_id = obj[0].HALL_ID;
+                    MB.Core.switchModal({
+                        type: "content",
+                        filename: "scheme_editor",
                         isNew: true,
                         params: {
                             hall_scheme: tableInstance.data.data[sel],
@@ -297,7 +336,7 @@
     ];
     (function () {
 
-        var il = MB.Core.fileLoader;
+        var il = new ImageLoader({delivery:delivery});
         var beforeBtn = tableInstance.wrapper.find('.ct-btn-create-inline');
         var btnHtml = '<li class="ct-environment-btn import_hall_scheme"><div class="nb btn btnDouble green"><i class="fa fa-plus"></i><div class="btnDoubleInner">Импортировать схему</div></div></li>';
         beforeBtn.before(btnHtml);
@@ -319,7 +358,6 @@
                 message: modalHtml,
                 title: "Импорт схемы из файла",
                 callback:function(){
-//                    alert(123);
                 },
                 buttons: {
                     success: {
