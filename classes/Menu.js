@@ -33,7 +33,7 @@ Model.prototype.get_menu_tree = function (params, cb) {
     var _t = this;
     //params.collapseData = false;
     params.order_by = 'sort_no';
-    params.sort = 'sort_no';
+    params.sort = 'sort_no, name_ru';
     params.limit = false;
     params.param_where = {
         is_visible:true

@@ -285,6 +285,22 @@
       "prev_value" : {"type": "text", "name": "Предыдущее значение"}
     }
   },
+  "rollback_backup": {
+    "profile": {
+      "name": "rollback_backup",
+      "name_ru": "Архив важных изменений",
+      "ending": ""
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "rollbackKey": { "type": "varchar", "length": "255", "name": "Ключ"},
+      "class_name": { "type": "varchar", "length": "255", "name": "Class"},
+      "class_name_ru": { "type": "varchar", "length": "255", "name": "Класс"},
+      "method": { "type": "varchar", "length": "255", "name": "Метод"},
+      "params": { "type": "text", "name": "Параметры"},
+      "filename": { "type": "text", "name": "Файл"}
+    }
+  },
   "test": {
     "profile": {
       "name": "test",
@@ -457,20 +473,6 @@
       "sysname" : {"type": "varchar", "length": "255", "name": "Системное имя"}
     }
   },
-  "hall": {
-    "profile": {
-      "name": "hall",
-      "name_ru": "Зал",
-      "ending": ""
-    },
-    "structure": {
-      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
-      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
-      "address": { "type": "varchar", "length": "255", "name": "Адрес"},
-      "area_id": { "type": "bigint", "length": "20", "parent_key": true, "from_table": "area"},
-      "test_child_name": { "type": "varchar", "length": "255", "from_table": "area", "keyword": "area_id", "return_column": "name", "virtual": true, "name": "Площадка"}
-    }
-  },
   "area": {
     "profile": {
       "name": "area",
@@ -482,7 +484,7 @@
       "name": { "type": "varchar", "length": "255", "name": "Наименование"},
       "sysname": { "type": "varchar", "length": "255", "name": "Системное"},
       "address": { "type": "varchar", "length": "255", "name": "Адрес"},
-      "google_address": { "type": "varchar", "length": "255", "name": "Google Адрес"},
+      "google_address": { "type": "varchar", "length": "255", "name": "Адрес Google"},
       "default_poster": { "type": "varchar", "length": "255", "name": "Постер по умолч."},
       "poster_url_big": { "type": "varchar", "length": "255", "name": "Изображение (URL) большое"},
       "poster_url_middle": { "type": "varchar", "length": "255", "name": "Изображение (URL) среднее"},
@@ -491,8 +493,83 @@
       "discription": { "type": "text", "name": "Описание"},
       "phone": { "type": "varchar", "length": "255", "name": "Тел."},
       "metro": { "type": "varchar", "length": "255", "name": "Метро"},
-      "address": { "type": "varchar", "length": "255", "name": "Адрес"},
       "alias": { "type": "varchar", "length": "255", "name": "ALIAS"}
     }
+  },
+  "hall": {
+    "profile": {
+      "name": "hall",
+      "name_ru": "Зал",
+      "server_parent_table":"area",
+      "server_parent_key":"area_id",
+      "ending": ""
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "address": { "type": "varchar", "length": "255", "name": "Адрес"},
+      "google_address": { "type": "varchar", "length": "255", "name": "Адрес Google"},
+      "area_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
+      "area": { "type": "varchar", "length": "255", "from_table": "area", "keyword": "area_id", "return_column": "name", "virtual": true, "name": "Площадка"}
+    }
+  },
+  "hall_scheme": {
+    "profile": {
+      "name": "hall_scheme",
+      "name_ru": "Схема зала",
+      "server_parent_table":"hall",
+      "server_parent_key":"hall_id",
+      "ending": "а"
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "hall_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
+      "hall": { "type": "varchar", "length": "255", "from_table": "hall", "keyword": "hall_id", "return_column": "name", "virtual": true, "name": "Зал"}
+    }
+  },
+  "element_group_visibility_type": {
+    "profile": {
+      "name": "scheme_mode",
+      "name_ru": "Режим схемы",
+      "ending": ""
+    },
+    "structure": {
+      "id" : { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name" : {"type": "varchar", "length": "255", "name": "Наименование"},
+      "sysname" : {"type": "varchar", "length": "255", "name": "Системное имя"}
+    }
+  },
+  "hall_scheme_element_group_hide_in_mode": {
+    "profile": {
+      "name": "hall_scheme_element_group_hide_in_mode",
+      "name_ru": "Спрятанные группы элементов в режиме схемы",
+      "server_parent_table":"hall_scheme_element_group",
+      "server_parent_key":"hall_scheme_element_group_id",
+      "ending": "а"
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
+      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true, "visible": false}
+    }
+  },
+  "hall_scheme_element_group": {
+    "profile": {
+      "name": "hall_scheme_element_group",
+      "name_ru": "Группа элементов схемы зала",
+      "server_parent_table":"hall_scheme",
+      "server_parent_key":"hall_scheme_id",
+      "ending": "а"
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "hall_scheme_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
+      "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "virtual": true, "name": "Схема зала"}
+    }
   }
+
+
 }
