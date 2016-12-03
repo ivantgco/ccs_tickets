@@ -325,7 +325,7 @@
     "structure": {
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
       "name": { "type": "varchar", "length": "255", "name": "Наименование"},
-      "test_child_id": { "type": "bigint", "length": "20", "parent_key": true, "from_table": "test_child"},
+      "test_child_id": { "type": "bigint", "length": "20", "from_table": "test_child"},
       "test_child_name": { "type": "varchar", "length": "255", "from_table": "test_child", "keyword": "test_child_id", "return_column": "name", "virtual": true, "name": "Наименование дочки теста"},
       "grandmother_name": { "type": "varchar", "length": "255", "name": "Имя бабушки"},
       "pets_name": { "type": "text", "name": "Имя скотины"},
@@ -472,7 +472,21 @@
       "default_for_data_type" : {"type": "varchar", "length": "255", "name": "Знач. по умолч. для типа данных"},
       "sysname" : {"type": "varchar", "length": "255", "name": "Системное имя"}
     }
+  },"file": {
+  "profile": {
+    "name": "file",
+    "name_ru": "Файл",
+    "ending": ""
   },
+  "structure": {
+    "id" : { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+    "name" : {"type": "varchar", "length": "255", "name": "Наименование"},
+    "filename" : {"type": "varchar", "length": "255", "name": "Имя файла"},
+    "filepath" : {"type": "varchar", "length": "255", "name": "Путь к файлу"},
+    "extension" : {"type": "varchar", "length": "255", "name": "Расширение"},
+    "absolute_path" : {"type": "varchar", "length": "255", "name": "Полный путь к файлу"}
+  }
+},
   "area": {
     "profile": {
       "name": "area",

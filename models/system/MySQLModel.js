@@ -107,6 +107,10 @@ var MySQLModel = function (obj) {
                         case "tinyint":
                             return (profile.field_length == 1) ? 'parseBool' : null;
                             break;
+                        case "DECIMAL(10, 2)":
+                        case "DECIMAL(15, 2)":
+                            return 'formatMoney';
+                            break;
                         default :
                             return null;
                             break;
@@ -467,7 +471,7 @@ MySQLModel.prototype.init = function (obj, cb) {
                     }
                     var sql = "SELECT " + ready_columns.join(', ') + " FROM " + tableName + join_tables.join('') + ' WHERE ' +
                         tableName + ".name = " + pool.escape(_t.client_object) + " AND " + tableName + ".class_id = " + pool.escape(_t.class_profile.id);
-                    console.log(sql);
+                    //console.log(sql);
                     //conn.select("client_object_profile",'*', {name:_t.client_object, class_id:_t.class_profile.id}, function (err, res) {
                     conn.query(sql, function (err, res) {
                         conn.release();
@@ -1003,7 +1007,7 @@ MySQLModel.prototype.get = function (params, cb) {
         cacheAlias += JSON.stringify(params);//.replace(/"|:|\{|\}|\,|\>|\=|\*/ig,'');
         if (!global.classesCache[_t.name]) global.classesCache[_t.name] = {};
         if (global.classesCache[_t.name][cacheAlias]) {
-            console.log('\n========USE_CACHE==================================================\n');
+            console.log('\n========USE_CACHE=======\n',cacheAlias);
             return cb(null, global.classesCache[_t.name][cacheAlias]);
         }
         //if (_t.cache[cacheAlias]) {
@@ -1059,7 +1063,7 @@ MySQLModel.prototype.get = function (params, cb) {
                     columns.push(resultColumns[column]);
                 }
             }
-            if (!columns.length) return cb(new MyError('Нет доступных колонок.'));
+            if (!columns.length) return cb(new MyError('Нет доступных колонок.',{params:params}));
             var sqlStart = '';
             //var sqlStart = "SELECT " + columns.join(', ') + " FROM " + _t.name;
             var sql = "";
@@ -1297,7 +1301,10 @@ MySQLModel.prototype.get = function (params, cb) {
             async.waterfall([
                 pool.getConn,
                 function (conn, cb) {
-                    if (distinct) return cb(null);
+                    if (distinct) {
+                        conn.release();
+                        return cb(null);
+                    }
                     conn.queryValue(sqlCount, [], function (err, res) {
                         conn.release();
                         if (err) {
@@ -1592,13 +1599,14 @@ MySQLModel.prototype.add = function (obj, cb) {
     });
 };
 
-MySQLModel.prototype.modify = function (obj, cb) {
+MySQLModel.prototype.modify = function (obj_in, cb) {
     if (arguments.length == 1) {
         cb = arguments[0];
-        obj = {};
+        obj_in = {};
     }
     if (typeof cb !== 'function') throw new MyError('В метод не передан cb');
-    if (typeof obj !== 'object') return cb(new MyError('В метод не переданы obj'));
+    if (typeof obj_in !== 'object') return cb(new MyError('В метод не переданы obj'));
+    var obj = funcs.cloneObj(obj_in);
     var _t = this;
     var fromClient = !(obj.fromClient === false);
     delete obj.fromClient;
@@ -1607,6 +1615,7 @@ MySQLModel.prototype.modify = function (obj, cb) {
         rollback_key = obj.rollback_key;
         delete obj.rollback_key;
     }
+    var doNotClearCache = obj.doNotClearCache;
 
 
     var id = obj.id;
@@ -1719,6 +1728,7 @@ MySQLModel.prototype.modify = function (obj, cb) {
         pool.getConn,
         function (conn, cb) {
             obj.updated = funcs.getDateTimeMySQL();
+            //console.log(obj);
             conn.update(_t.tableName, obj, function (err, affected) {
                 conn.release();
                 if (err) {
@@ -1736,7 +1746,9 @@ MySQLModel.prototype.modify = function (obj, cb) {
         if (results == 0) {
             return cb(new UserError('notModified', {id: obj.id, name:_t.name}));
         }
-        _t.clearCache();
+        if (!doNotClearCache){
+            _t.clearCache();
+        }
         return cb(null, new UserOk(_t.table_ru + ' успешно изменен' + _t.ending + '.', {id: obj.id}));
     });
 };
@@ -1802,7 +1814,8 @@ MySQLModel.prototype.remove = function (obj, cb) {
                     function (cb) {
                         var o = {
                             id: id,
-                            deleted: funcs.getDateTimeMySQL()
+                            deleted: funcs.getDateTimeMySQL(),
+                            doNotClearCache:obj.doNotClearCache
                         };
                         if (row && typeof row.name!=='undefined') o.name = row.name + obj.name_postfix;
                         _t.modify(o, cb);
@@ -1815,7 +1828,9 @@ MySQLModel.prototype.remove = function (obj, cb) {
     ], function (err, results) {
         if (err) return cb(new MyError('Не удалось удалить запись.', err));
         if (results == 0) return cb(new UserError('rowNotFound'));
-        _t.clearCache();
+        if (!obj.doNotClearCache){
+            _t.clearCache();
+        }
         if (rollback_key) {
             var o = {
                 type: 'remove',
@@ -2062,7 +2077,8 @@ MySQLModel.prototype.removeCascade = function (obj, cb) {
                             object:node.name,
                             params:{
                                 id:record.id,
-                                rollback_key:rollback_key
+                                rollback_key:rollback_key,
+                                doNotClearCache:true
                             }
                         };
                         _t.api(o, cb);
@@ -2070,7 +2086,7 @@ MySQLModel.prototype.removeCascade = function (obj, cb) {
                         if (err) return cb(err);
                         if (!node.nodes.length) return cb(null);
                         remove(node.nodes, cb);
-                    });
+    });
                 }, cb);
             };
             async.series({
@@ -2114,6 +2130,7 @@ MySQLModel.prototype.removeCascade = function (obj, cb) {
                     });
                     return cb(err);
                 }
+                _t.clearCache();
                 if (!doNotSaveRollback) rollback.save({rollback_key:rollback_key, user:_t.user, name:_t.name, name_ru:_t.name_ru || _t.name, method:'removeCascade', params:obj});
                 return cb(null, new UserOk(_t.table_ru + ' успешно удален' + _t.ending + '.', {id: obj.id, child_tables:child_tables}));
             });
@@ -2236,14 +2253,21 @@ MySQLModel.prototype.getForFilterSelect = function (obj, cb) {
     var client_object = obj.client_object;
     if (!column_name) return cb(new MyError('Не передан параметр column_name'));
     var page_no = obj.page_no || 1;
+
+
+    /// ЭТОТ БЛОК БЫЛ ЗАКОМЕНТИРОВАН /////////////////////////////////
     //select_search_columns
-    //var colProfile = _t.class_fields_profile[column_name];
-    //if (!colProfile) return cb(new MyError('Нет профайла для данного столбца'));
-    //var select_class = colProfile.select_class;// || _t.name;
+    var colProfile = _t.class_fields_profile[column_name];
+    if (!colProfile) return cb(new MyError('Нет профайла для данного столбца'));
+    var select_class = colProfile.select_class;// || _t.name;
     //var select_search_columns = colProfile.select_search_columns || 'name';
     //if (typeof select_search_columns=='string') select_search_columns = select_search_columns.replace(/\s+/ig,'').split(',');
     //var return_id = colProfile.return_id || 'id';
     //var return_name = colProfile.return_name || 'name';
+    /// ЭТОТ БЛОК БЫЛ ЗАКОМЕНТИРОВАН /////////////////////////////////
+
+
+
 
     // select id, distinct column_name from class where column_name like '%%'
     var params = {
@@ -2261,9 +2285,21 @@ MySQLModel.prototype.getForFilterSelect = function (obj, cb) {
         comparisonType: 'OR'
     });
 
+    //if (!select_class) { // Если не указан класс у колонки в который стучаться
+    //    //_t.get(params, cb);
+    //    var res = funcs.collapseData([{id: 0, name: 'Необходимо указать поле select_class'}], {count: 1, count_all: 1});
+    //    cb(null, res);
+    //} else { // есть класс, запросим его get
+    //    var o = {
+    //        command: 'get',
+    //        object: select_class,
+    //        params: params
+    //    };
+    //    _t.api(o, cb);
+    //}
     var o = {
         command: 'get',
-        object: _t.name,
+        object: colProfile.join_table || _t.name,
         params: params
     };
     _t.api(o, cb);
@@ -2297,7 +2333,11 @@ MySQLModel.prototype.validate = function (obj) {
     }
 };
 
-MySQLModel.prototype.clearCache = function (cb) {
+MySQLModel.prototype.clearCache = function (obj, cb) {
+    if (arguments.length == 1) {
+        cb = arguments[0];
+        obj = {};
+    }
     var _t = this;
 
     _t.uniqueColumns = [];
@@ -2318,6 +2358,40 @@ MySQLModel.prototype.clearCache = function (cb) {
     });
 };
 
+MySQLModel.prototype.execProcedure = function (obj, cb) {
+    if (arguments.length == 1) {
+        cb = arguments[0];
+        obj = {};
+    }
+    if (typeof cb !== 'function') throw new MyError('В метод не передан cb');
+    if (typeof obj !== 'object') return cb(new MyError('В метод не переданы obj'));
+    var _t = this;
+    var fromClient = !(obj.fromClient === false);
+    delete obj.fromClient;
+    if (fromClient) return cb(new MyError('Запрещено!'));
+    var procedureName = obj.procedureName;
+    if (!procedureName) return cb(new MyError('Не передан procedureName'));
+    async.waterfall([
+        pool.getConn,
+        function (conn, cb) {
+            conn.query('CALL '+ procedureName +'()', function (err, res) {
+                conn.release();
+                if (err) {
+                    err.msg = err.message;
+                    return cb(new MyError('Не удалось выполнить хранимую процедуру', err));
+                }
+                cb(null);
+            });
+        },
+    ], function (err, results) {
+        if (err) {
+            return cb(err);
+        }
+        if (!obj.doNotClearCache) _t.clearCache();
+        cb(null, results);
+    });
+};
+
 module.exports = MySQLModel;
 
 // Пример как работать с виртуальными полями ссылающимися на уже подключенные таблицы
@@ -2325,3 +2399,6 @@ module.exports = MySQLModel;
 //"category" : {"type": "varchar", "length": "255", "from_table": "category", "keyword": "category_id", "return_column": "name", "virtual": true, "name": "Подкатегория"},
 //"parent_category_id" : {"type": "varchar", "length": "255", "from_table": "category", "join_table": "category", "keyword": "parent_category_id", "return_column": "id", "virtual": true},
 //"parent_category" : {"type": "varchar", "length": "255", "from_table":"category", "join_table": "category", "keyword": "parent_category_id", "return_column": "name", "virtual": true, "name": "Категория"},
+
+
+// В tables.json параметр parent_key:true ставить не надо. Он только для таблиц в форме (клиентских объектов)
