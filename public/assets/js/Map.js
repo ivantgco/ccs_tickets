@@ -1288,6 +1288,22 @@ Map.prototype.zoomToPoint = function (x, y) {
 
 
 
+Map.prototype.load = function (obj, cb) {
+    if (arguments.length == 1) {
+        cb = arguments[0];
+        obj = {};
+    }
+}
+Map.prototype.initData = function (obj, cb) {
+    if (arguments.length == 1) {
+        cb = arguments[0];
+        obj = {};
+    }
+    var data = obj.data;
+    if (typeof data != 'object') return cb('В метод не передана obj.data');
+}
+
+
 
 /***    Рендер (View)       ***/
 
