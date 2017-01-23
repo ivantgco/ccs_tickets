@@ -1299,8 +1299,15 @@ Map.prototype.initData = function (obj, cb) {
         cb = arguments[0];
         obj = {};
     }
+    var _t = this;
     var data = obj.data;
-    if (typeof data != 'object') return cb('В метод не передана obj.data');
+    if (typeof data != 'object') return cb(new MyError('В метод не передана obj.data',{obj:obj}));
+    var squares = data.squares || [];
+    for (var i in squares) {
+        var square = squares[i];
+        _t.squares[i] = square || _t.squares[i];
+
+    }
 }
 
 
