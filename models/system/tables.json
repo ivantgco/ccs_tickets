@@ -472,7 +472,8 @@
       "default_for_data_type" : {"type": "varchar", "length": "255", "name": "Знач. по умолч. для типа данных"},
       "sysname" : {"type": "varchar", "length": "255", "name": "Системное имя"}
     }
-  },"file": {
+  },
+  "file": {
   "profile": {
     "name": "file",
     "name_ru": "Файл",
@@ -581,7 +582,52 @@
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
       "name": { "type": "varchar", "length": "255", "name": "Наименование"},
       "hall_scheme_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
+      "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "virtual": true, "name": "Схема зала"},
+      "z_index": { "type": "int", "length": "20", "default":0}
+    }
+  },
+  "hall_scheme_area_group": {
+    "profile": {
+      "name": "hall_scheme_area_group",
+      "name_ru": "Сектор схемы зала",
+      "server_parent_table":"hall_scheme",
+      "server_parent_key":"hall_scheme_id",
+      "ending": ""
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "hall_scheme_id": { "type": "bigint", "length": "20", "required": true, "visible": false},
       "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "virtual": true, "name": "Схема зала"}
+    }
+  },
+  "hall_scheme_place": {
+    "profile": {
+      "name": "hall_scheme_place",
+      "name_ru": "Место схемы зала",
+      "server_parent_table":"hall_scheme_element_group",
+      "server_parent_key":"hall_scheme_element_group_id",
+      "ending": "о"
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "required": true, "visible": false},
+      "hall_scheme_element_group": { "type": "varchar", "length": "255", "from_table": "hall_scheme_element_group", "keyword": "hall_scheme_element_group_id", "return_column": "name", "virtual": true, "name": "Группа элементов"},
+      "hall_scheme_id": { "type": "bigint", "length": "20", "required": true, "visible": false},
+      "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "virtual": true, "name": "Схема зала"},
+      "x": { "type": "bigint", "length": "20", "default":0},
+      "x_orig": { "type": "bigint", "length": "20", "default":0},
+      "x_lastSave": { "type": "bigint", "length": "20", "default":0},
+      "y": { "type": "bigint", "length": "20", "default":0},
+      "y_orig": { "type": "bigint", "length": "20", "default":0},
+      "y_lastSave": { "type": "bigint", "length": "20", "default":0},
+      "rotation": { "type": "int", "length": "10", "default":0},
+      "line": { "type": "varchar", "length": "255", "name": "Ряд"},
+      "line_title": { "type": "varchar", "length": "255", "name": "Ряд(title)", "default":"Ряд"},
+      "place": { "type": "varchar", "length": "255", "name": "Место"},
+      "place_title": { "type": "varchar", "length": "255", "name": "Место(title)", "default":"Место"},
+      "status": { "type": "int", "length": "20", "default":1}
     }
   }
 
