@@ -175,7 +175,7 @@ var MySQLModel = function (obj) {
 
         if (typeof additional_params !== 'object') additional_params = {};
         var standart = additional_params.standart;
-        var virtual = additional_params.virtual || true;
+        var is_virtual = additional_params.is_virtual || true;
         if (standart) {
             // загрузим стандартные значения
             for (var i in _t.class_fields_profile) {
@@ -183,18 +183,18 @@ var MySQLModel = function (obj) {
                 var columnName = colProfile.column_name;
                 if (typeof colProfile !== 'object') continue;
                 var colValue = obj[columnName];
-                if (typeof colValue === 'undefined' && colProfile.default_value && !colProfile.virtual) {
+                if (typeof colValue === 'undefined' && colProfile.default_value && !colProfile.is_virtual) {
                     obj[columnName] = colProfile.default_value;
                 }
             }
         }
-        if (!virtual) return cb(null, obj);
-        // Загрузим значения по умолчанию для virtual полей
+        if (!is_virtual) return cb(null, obj);
+        // Загрузим значения по умолчанию для is_virtual полей
         async.eachSeries(_t.class_fields_profile, function (item, cb) {
             var columnName = item.column_name;
             if (typeof item !== 'object') return cb(new MyError('Не удалось получить профайл колонки...', i));
             var colValue = obj[columnName];
-            if (typeof colValue === 'undefined' && item.virtual && item.default_value) {
+            if (typeof colValue === 'undefined' && item.is_virtual && item.default_value) {
                 // Загрузим необходимый default
                 if (typeof obj[item.keyword] !== 'undefined') return cb(null);
                 var o = {
@@ -458,8 +458,8 @@ MySQLModel.prototype.init = function (obj, cb) {
                     var from_table_counter = {};
                     for (var col in _t.co_profile_fields) {
                         var colProfile = _t.co_profile_fields[col];
-                        if (colProfile.virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
-                        if (!colProfile.virtual) {
+                        if (colProfile.is_virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
+                        if (!colProfile.is_virtual) {
                             ready_columns.push(tableName + '.' + col);
                             continue;
                         }
@@ -511,8 +511,8 @@ MySQLModel.prototype.init = function (obj, cb) {
                 //    var from_table_counter = {};
                 //    for (var col in _t.co_fields_profile_fields) {
                 //        var colProfile = _t.co_fields_profile_fields[col];
-                //        if (colProfile.virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
-                //        if (!colProfile.virtual) {
+                //        if (colProfile.is_virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
+                //        if (!colProfile.is_virtual) {
                 //            ready_columns.push(tableName + '.' + col);
                 //            continue;
                 //        }
@@ -556,8 +556,8 @@ MySQLModel.prototype.init = function (obj, cb) {
                     var from_table_counter = {};
                     for (var col in _t.fields_profile_fields) {
                         var colProfile = _t.fields_profile_fields[col];
-                        if (colProfile.virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
-                        if (!colProfile.virtual) {
+                        if (colProfile.is_virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
+                        if (!colProfile.is_virtual) {
                             ready_columns.push(tableName + '.' + col);
                             continue;
                         }
@@ -609,8 +609,8 @@ MySQLModel.prototype.init = function (obj, cb) {
                     var from_table_counter = {};
                     for (var col in _t.fields_profile_fields) {
                         var colProfile = _t.fields_profile_fields[col];
-                        if (colProfile.virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
-                        if (!colProfile.virtual) {
+                        if (colProfile.is_virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
+                        if (!colProfile.is_virtual) {
                             ready_columns.push(tableName + '.' + col);
                             continue;
                         }
@@ -1087,8 +1087,8 @@ MySQLModel.prototype.get = function (params, cb) {
                 if (distinct && col !== distinct) continue;
                 var colProfile = _t.class_fields_profile[col];
                 if (sort.columns.indexOf(col) !== -1) sortColumnsReady.push(col);
-                //if (colProfile.virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
-                if (!colProfile.virtual) {
+                //if (colProfile.is_virtual && colProfile.concat_fields) continue; // Пропускаем concat_fields
+                if (!colProfile.is_virtual) {
                     ready_columns.push(tableName + '.' + col);
                     continue;
                 }
@@ -1147,7 +1147,7 @@ MySQLModel.prototype.get = function (params, cb) {
                 }));
                 var key;
                 var fromTable = columnProfile.from_table_alias || columnProfile.from_table;
-                if (columnProfile.virtual && fromTable) {
+                if (columnProfile.is_virtual && fromTable) {
                     key = fromTable;
                 } else {
                     key = one_where.key;
@@ -1165,7 +1165,7 @@ MySQLModel.prototype.get = function (params, cb) {
                 comparisonType = comparisonType.toUpperCase();
                 var binaryStr = (one_where.binary) ? 'BINARY ' : '';
                 var keyString;
-                if (!columnProfile.virtual) {
+                if (!columnProfile.is_virtual) {
                     if (columnProfile.type == 'date') {
                         //keyString = "DATE_FORMAT(" + tableName + '.' + key + ",'%d.%m.%Y')";
                         keyString = tableName + '.' + key
@@ -1176,7 +1176,7 @@ MySQLModel.prototype.get = function (params, cb) {
                         keyString = binaryStr + tableName + '.' + key;
                     }
 
-                } else if (columnProfile.virtual && fromTable) {
+                } else if (columnProfile.is_virtual && fromTable) {
                     keyString = binaryStr + fromTable + '.' + columnProfile.return_column;
                 } else {
                     var concat_array = columnProfile.concat_array;
@@ -1415,7 +1415,7 @@ MySQLModel.prototype.add = function (obj, cb) {
                     return cb(null);
                 } // Просто игнорируем поля для которых нет профайла
                 var colValue = obj[key];
-                if (typeof obj[colProfile.keyword] === 'undefined' && typeof colValue !== 'undefined' && colProfile.virtual && colProfile.from_table && colProfile.keyword && colProfile.return_column) {
+                if (typeof obj[colProfile.keyword] === 'undefined' && typeof colValue !== 'undefined' && colProfile.is_virtual && colProfile.from_table && colProfile.keyword && colProfile.return_column) {
                     // Загрузим значение для статуса colValue
                     var o = {
                         command: 'get',
@@ -1459,7 +1459,7 @@ MySQLModel.prototype.add = function (obj, cb) {
                     continue;
                 } // Просто игнорируем поля для которых нет профайла
                 var colValue = obj[i];
-                if ((colProfile.virtual && !colProfile.from_table && fromClient) || (!colProfile.server_editable && !colProfile.server_insertable && fromClient)) delete obj[i];
+                if ((colProfile.is_virtual && !colProfile.from_table && fromClient) || (!colProfile.server_editable && !colProfile.server_insertable && fromClient)) delete obj[i];
             }
             delete obj['id'];
             delete obj['created'];
@@ -1470,7 +1470,7 @@ MySQLModel.prototype.add = function (obj, cb) {
             for (var j in _t.required_fields) {
                 var colName = _t.required_fields[j];
                 var colProfile2 = _t.class_fields_profile[colName];
-                if (colProfile2.virtual) continue; // Я игнорирую requred для виртуальных полей
+                if (colProfile2.is_virtual) continue; // Я игнорирую requred для виртуальных полей
                 if (typeof obj[colName] === 'undefined') requredNotFound.push({
                     column_name: colName,
                     name: colProfile2.name
@@ -1491,7 +1491,7 @@ MySQLModel.prototype.add = function (obj, cb) {
             });
         },
         function (cb) {
-            // Проставим значения по умолчанию для virtual полей
+            // Проставим значения по умолчанию для is_virtual полей
             _t.loadDefaultValues(obj, function (err, result_obj) {
                 obj = result_obj;
                 return cb(err);
@@ -1633,7 +1633,7 @@ MySQLModel.prototype.modify = function (obj_in, cb) {
                     return cb(null);
                 } // Просто игнорируем поля для которых нет профайла
                 var colValue = obj[key];
-                if (typeof obj[colProfile.keyword] === 'undefined' && typeof colValue !== 'undefined' && colProfile.virtual && colProfile.from_table && colProfile.keyword && colProfile.return_column) {
+                if (typeof obj[colProfile.keyword] === 'undefined' && typeof colValue !== 'undefined' && colProfile.is_virtual && colProfile.from_table && colProfile.keyword && colProfile.return_column) {
                     // Загрузим значение для статуса colValue
                     var o = {
                         command: 'get',
@@ -1675,7 +1675,7 @@ MySQLModel.prototype.modify = function (obj_in, cb) {
                     continue;
                 } // Просто игнорируем поля для которых нет профайла
                 var colValue = obj[i];
-                if ((colProfile.virtual && !colProfile.from_table && fromClient) || (!colProfile.server_editable && !colProfile.server_updatable && fromClient && colProfile.column_name !== 'id')) delete obj[i];
+                if ((colProfile.is_virtual && !colProfile.from_table && fromClient) || (!colProfile.server_editable && !colProfile.server_updatable && fromClient && colProfile.column_name !== 'id')) delete obj[i];
             }
             delete obj['created'];
             if (Object.keys(obj).length < 2) return cb(new UserError('Поля, которые вы пытаетесь изменить не редактируемы.'));
@@ -1683,7 +1683,7 @@ MySQLModel.prototype.modify = function (obj_in, cb) {
             for (var j in _t.required_fields) {
                 var colName = _t.required_fields[j];
                 var colProfile2 = _t.class_fields_profile[colName];
-                if (colProfile2.virtual) continue; // Я игнорирую requred для виртуальных полей
+                if (colProfile2.is_virtual) continue; // Я игнорирую requred для виртуальных полей
                 if (typeof obj[colName] === '') requredNotFound.push({column_name: colName, name: colProfile2.name});
             }
             if (requredNotFound.length) {
@@ -1984,7 +1984,7 @@ MySQLModel.prototype.removeCascade = function (obj, cb) {
                 object:'class_fields_profile',
                 params:{
                     param_where:{
-                        virtual:1,
+                        is_virtual:1,
                         from_table:_t.name.toLowerCase()
 
                     },
@@ -2396,9 +2396,9 @@ module.exports = MySQLModel;
 
 // Пример как работать с виртуальными полями ссылающимися на уже подключенные таблицы
 //"category_id" : {"type": "bigint", "length": "20", "visible": false},
-//"category" : {"type": "varchar", "length": "255", "from_table": "category", "keyword": "category_id", "return_column": "name", "virtual": true, "name": "Подкатегория"},
-//"parent_category_id" : {"type": "varchar", "length": "255", "from_table": "category", "join_table": "category", "keyword": "parent_category_id", "return_column": "id", "virtual": true},
-//"parent_category" : {"type": "varchar", "length": "255", "from_table":"category", "join_table": "category", "keyword": "parent_category_id", "return_column": "name", "virtual": true, "name": "Категория"},
+//"category" : {"type": "varchar", "length": "255", "from_table": "category", "keyword": "category_id", "return_column": "name", "is_virtual": true, "name": "Подкатегория"},
+//"parent_category_id" : {"type": "varchar", "length": "255", "from_table": "category", "join_table": "category", "keyword": "parent_category_id", "return_column": "id", "is_virtual": true},
+//"parent_category" : {"type": "varchar", "length": "255", "from_table":"category", "join_table": "category", "keyword": "parent_category_id", "return_column": "name", "is_virtual": true, "name": "Категория"},
 
 
 // В tables.json параметр parent_key:true ставить не надо. Он только для таблиц в форме (клиентских объектов)
