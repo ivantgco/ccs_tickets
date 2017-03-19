@@ -589,16 +589,33 @@
   "hall_scheme_element_group_hide_in_mode": {
     "profile": {
       "name": "hall_scheme_element_group_hide_in_mode",
-      "name_ru": "Спрятанные группы элементов в режиме схемы",
+      "name_ru": "Спрятанные группы элементов для режимов",
       "server_parent_table":"hall_scheme_element_group",
       "server_parent_key":"hall_scheme_element_group_id",
       "ending": "а"
     },
     "structure": {
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
-      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "is_hide": { "type": "tinyint", "length": "1", "default":1},
       "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
-      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true}
+      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true},
+      "scheme_state_id": { "type": "bigint", "length": "20", "required": true}
+    }
+  },
+  "hall_scheme_element_hide_in_mode": {
+    "profile": {
+      "name": "hall_scheme_element_hide_in_mode",
+      "name_ru": "Спрятанные элементы для режимов",
+      "server_parent_table":"hall_scheme_element",
+      "server_parent_key":"hall_scheme_element_id",
+      "ending": "а"
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "is_hide": { "type": "tinyint", "length": "1", "default":1},
+      "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
+      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true},
+      "scheme_state_id": { "type": "bigint", "length": "20", "required": true}
     }
   },
   "hall_scheme_element_group": {
@@ -614,13 +631,28 @@
       "name": { "type": "varchar", "length": "255", "name": "Наименование"},
       "hall_scheme_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
       "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "is_virtual": true, "name": "Схема зала"},
+      "element_group_type_id": { "type": "bigint", "length": "20", "required": true},
+      "element_group_type": { "type": "varchar", "length": "255", "from_table": "element_group_type", "keyword": "element_group_type_id", "return_column": "name", "is_virtual": true, "name": "Тип"},
+      "element_group_type_sysname": { "type": "varchar", "length": "255", "from_table": "element_group_type", "keyword": "element_group_type_id", "return_column": "sysname", "is_virtual": true, "name": "Тип"},
       "z_index": { "type": "int", "length": "20", "default":0}
     }
   },
-  "hall_scheme_area_group": {
+  "element_group_type": {
     "profile": {
-      "name": "hall_scheme_area_group",
-      "name_ru": "Сектор схемы зала",
+      "name": "element_group_type",
+      "name_ru": "Тип группы элементов",
+      "ending": ""
+    },
+    "structure": {
+      "id" : { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name" : {"type": "varchar", "length": "255", "name": "Наименование"},
+      "sysname" : {"type": "varchar", "length": "255", "name": "Системное имя"}
+    }
+  },
+  "hall_scheme_element": {
+    "profile": {
+      "name": "hall_scheme_element",
+      "name_ru": "Элемент схемы зала",
       "server_parent_table":"hall_scheme",
       "server_parent_key":"hall_scheme_id",
       "ending": ""
@@ -628,10 +660,12 @@
     "structure": {
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
       "name": { "type": "varchar", "length": "255", "name": "Наименование"},
-      "hall_scheme_id": { "type": "bigint", "length": "20", "required": true, "visible": false},
-      "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "is_virtual": true, "name": "Схема зала"}
+      "hall_scheme_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
+      "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "is_virtual": true, "name": "Схема зала"},
+      "z_index": { "type": "int", "length": "20", "default":0}
     }
   },
+
   "hall_scheme_place": {
     "profile": {
       "name": "hall_scheme_place",
@@ -659,6 +693,21 @@
       "place": { "type": "varchar", "length": "255", "name": "Место"},
       "place_title": { "type": "varchar", "length": "255", "name": "Место(title)", "default":"Место"},
       "status": { "type": "int", "length": "20", "default":1}
+    }
+  },
+  "hall_scheme_area_group": {
+    "profile": {
+      "name": "hall_scheme_area_group",
+      "name_ru": "Сектор схемы зала",
+      "server_parent_table":"hall_scheme",
+      "server_parent_key":"hall_scheme_id",
+      "ending": ""
+    },
+    "structure": {
+      "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name": { "type": "varchar", "length": "255", "name": "Наименование"},
+      "hall_scheme_id": { "type": "bigint", "length": "20", "required": true, "visible": false},
+      "hall_scheme": { "type": "varchar", "length": "255", "from_table": "hall_scheme", "keyword": "hall_scheme_id", "return_column": "name", "is_virtual": true, "name": "Схема зала"}
     }
   }
 
