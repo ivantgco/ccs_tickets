@@ -556,13 +556,28 @@
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
       "name": { "type": "varchar", "length": "255", "name": "Наименование"},
       "hall_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
-      "hall": { "type": "varchar", "length": "255", "from_table": "hall", "keyword": "hall_id", "return_column": "name", "is_virtual": true, "name": "Зал"}
+      "hall": { "type": "varchar", "length": "255", "from_table": "hall", "keyword": "hall_id", "return_column": "name", "is_virtual": true, "name": "Зал"},
+      "start_scheme_mode_id": { "type": "bigint", "length": "20", "visible": false},
+      "start_scheme_mode_sysname": { "type": "varchar", "length": "255", "from_table": "scheme_states", "keyword": "start_scheme_mode_id", "return_column": "sysname", "is_virtual": true, "name": "Режим загрузки", "default":"PLACES", "visible": false},
+      "start_scheme_mode": { "type": "varchar", "length": "255", "from_table": "scheme_states", "keyword": "start_scheme_mode_id", "return_column": "name", "is_virtual": true, "name": "Режим загрузки"}
     }
   },
   "scheme_mode": {
     "profile": {
       "name": "scheme_mode",
       "name_ru": "Режим схемы",
+      "ending": ""
+    },
+    "structure": {
+      "id" : { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
+      "name" : {"type": "varchar", "length": "255", "name": "Наименование"},
+      "sysname" : {"type": "varchar", "length": "255", "name": "Системное имя"}
+    }
+  },
+  "scheme_states": {
+    "profile": {
+      "name": "scheme_states",
+      "name_ru": "Состояния схемы",
       "ending": ""
     },
     "structure": {
