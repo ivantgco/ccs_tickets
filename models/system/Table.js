@@ -750,6 +750,84 @@ Table.prototype.createClass = function (params, cb) {
                     return cb(null);
                 });
             });
+        },
+        function (cb) {
+            // Создать пункт меню
+            // Получить id меню temp
+            var menu;
+            var item_exist = false;
+            async.series({
+                checkExist: function (cb) {
+                    var o = {
+                        command:'get',
+                        object:'menu',
+                        params:{
+                            param_where:{
+                                menu_item:_t.profile.name
+                            },
+                            fromClient:false,
+                            collapseData:false
+                        }
+                    }
+                    _t.api(o, function (err, res) {
+                        if (err){
+                            console.log('Не удалось создать пункт меню. Ошибка при получении menu menu_item=' + _t.profile.name,err);
+                            return cb(null);
+                        }
+                        item_exist = !!res.length;
+                        return cb(null);
+                    });
+                },
+                getMenuID: function (cb) {
+                    if (item_exist) return cb(null);
+                    var o = {
+                        command:'get',
+                        object:'menu',
+                        params:{
+                            param_where:{
+                                menu_item:'temp'
+                            },
+                            fromClient:false,
+                            collapseData:false
+                        }
+                    }
+                    _t.api(o, function (err, res) {
+                        if (err){
+                            console.log('Не удалось создать пункт меню. Ошибка при получении menu menu_item=temp',err);
+                            return cb(null);
+                        }
+                        if (!res.length){
+                            console.log('Не удалось создать пункт меню. В системе не заведено родительское меню menu_item=temp');
+                            return cb(null);
+                        }
+                        menu = res[0];
+                        return cb(null);
+                    });
+                },
+                addElement: function (cb) {
+                    if (item_exist) return cb(null);
+                    if (!menu) return cb(null);
+                    var o = {
+                        command:'add',
+                        object:'menu',
+                        params:{
+                            class_id:_t.class_id,
+                            menu_item:_t.profile.name,
+                            name:_t.profile.name_ru,
+                            parent_id:menu.id,
+                            menu_type:'item',
+                            is_visible:true
+                        }
+                    };
+                    _t.api(o, function (err, res) {
+                        if (err) {
+                            console.log('Не удалось создать пункт меню. Ошибка при добавлении.',err);
+                            return cb(null);
+                        }
+                        cb(null);
+                    })
+                }
+            },cb);
         }
     ], cb)
 };

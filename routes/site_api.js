@@ -6,6 +6,8 @@ var UserOk = require('../error').UserOk;
 var getCode = require('../libs/getCode');
 var funcs = require('../libs/functions');
 var async = require('async');
+var moment = require('moment');
+moment.locale('ru');
 
 
 exports.site_api = function(req, response, next){
@@ -31,8 +33,10 @@ exports.site_api = function(req, response, next){
     o.params.sid = obj.sid;
     api_functions[command](o.params || {}, function (err, res) {
         if (err) {
-            if (err instanceof UserError) return response.status(200).json(getCode(err.message, err.data));
-            return response.status(200).json(getCode('sysError', err));
+            if (err instanceof UserError || err instanceof UserOk) return response.status(200).json(getCode(err.message, err.data));
+            console.log('Системная ошибка при запросе с сайта.', err);
+            //return response.status(200).json(getCode('sysError', err));
+            return response.status(200).json(getCode('sysErrorSite',{err:err}));
         }
         if (typeof res.code!=='undefined') return response.status(200).json(res);
         //var s_json = JSON.stringify

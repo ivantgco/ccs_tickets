@@ -559,7 +559,7 @@
       "hall": { "type": "varchar", "length": "255", "from_table": "hall", "keyword": "hall_id", "return_column": "name", "is_virtual": true, "name": "Зал"}
     }
   },
-  "element_group_visibility_type": {
+  "scheme_mode": {
     "profile": {
       "name": "scheme_mode",
       "name_ru": "Режим схемы",
