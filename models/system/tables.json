@@ -597,9 +597,10 @@
     "structure": {
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
       "is_hide": { "type": "tinyint", "length": "1", "default":1},
-      "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
-      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true},
-      "scheme_state_id": { "type": "bigint", "length": "20", "required": true}
+      "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "required": true, "unique":true},
+      "hall_scheme_id": { "type": "bigint", "length": "20", "from_table": "hall_scheme_element_group", "keyword": "hall_scheme_element_group_id", "return_column": "hall_scheme_id", "is_virtual": true},
+      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true, "unique":true},
+      "scheme_state_id": { "type": "bigint", "length": "20", "required": true, "unique":true}
     }
   },
   "hall_scheme_element_hide_in_mode": {
@@ -613,9 +614,10 @@
     "structure": {
       "id": { "type": "bigint", "length": "20", "notNull": true, "autoInc": true, "primary_key": true},
       "is_hide": { "type": "tinyint", "length": "1", "default":1},
-      "hall_scheme_element_group_id": { "type": "bigint", "length": "20", "parent_key": true, "required": true, "visible": false},
-      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true},
-      "scheme_state_id": { "type": "bigint", "length": "20", "required": true}
+      "hall_scheme_element_id": { "type": "bigint", "length": "20", "required": true, "visible": false, "unique":true},
+      "hall_scheme_id": { "type": "bigint", "length": "20", "from_table": "hall_scheme_element", "keyword": "hall_scheme_element_id", "return_column": "hall_scheme_id", "is_virtual": true},
+      "scheme_mode_id": { "type": "bigint", "length": "20", "required": true, "unique":true},
+      "scheme_state_id": { "type": "bigint", "length": "20", "required": true, "unique":true}
     }
   },
   "hall_scheme_element_group": {

@@ -143,6 +143,6 @@ Model.prototype.example = function (obj, cb) {
             cb(null, new UserOk('Ок'));
         }
     });
-};
+}
 
 module.exports = Model;

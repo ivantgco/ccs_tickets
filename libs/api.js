@@ -19,6 +19,7 @@ module.exports = function (obj, cb, user) {
     var object_params = obj.object_params || {};
     var params = obj.params || {};
     var client_object = obj.client_object || params.client_object;
+    var fromClient = params.fromClient;
     //if (client_object) params.client_object = client_object;
     if (debug) var t1 = moment();
     if (obj.command == '_CLEAR') {
@@ -157,7 +158,8 @@ module.exports = function (obj, cb, user) {
             if (debug) var request_time = moment().diff(t1);
             if (err) {
                 //if (err instanceof UserError && !obj.params.fromServer) {
-                if (err instanceof UserError && !!obj.params.fromClient) {
+
+                if (err instanceof UserError && !!fromClient) {
                     return cb(null, getCode(err.message, err.data), request_time);
                 } else {
                     //console.log(err.stack);
