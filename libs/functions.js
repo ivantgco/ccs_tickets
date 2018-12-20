@@ -1,5 +1,6 @@
 var moment = require('moment');
 var MyError = require('../error').MyError;
+var async = require('async');
 
 var funcs = {
     guid: function () {
@@ -9,6 +10,24 @@ var funcs = {
             v = (c === "x" ? r : r & 0x3 | 0x8);
             return v.toString(16);
         }).toUpperCase();
+    },
+    guidShort: function () {
+        return "xxxxxxxx".replace(/[xy]/g, function (c) {
+            var r, v;
+            r = Math.random() * 16 | 0;
+            v = (c === "x" ? r : r & 0x3 | 0x8);
+            return v.toString(16);
+        }).toUpperCase();
+    },
+    hashCode: function (str) {
+        var hash = 0, i, chr;
+        if (str.length === 0) return hash;
+        for (i = 0; i < str.length; i++) {
+            chr = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + chr;
+            hash |= 0; // Convert to 32bit integer
+        }
+        return hash;
     },
     formatResponse: function (code, type, message, data) {
         code = code || 0;
@@ -56,6 +75,9 @@ var funcs = {
     getDate: function () {
         return moment().format('DD.MM.YYYY');
     },
+    getDateTime: function () {
+        return moment().format('DD.MM.YYYY HH.mm.ss');
+    },
     date_A_more_B: function (a,b,format) {
         format = format || 'DD.MM.YYYY';
         var a1 = moment(a, format);
@@ -80,7 +102,7 @@ var funcs = {
     formatMoney: function(val){
         if (!val) val = 0;
         if (isNaN(+val)) return val;
-        return val.toFixed(2);
+        return +val.toFixed(2);
     },
     formatPercent: function(val){
         if (!val) val = 0;
@@ -242,7 +264,87 @@ var funcs = {
         o.data_columns = dataColumns;
         o.code = 0;
         return o;
+    },
+    fieldSorter: function(fields) {
+        return function (a, b) {
+            return fields
+                .map(function (o) {
+                    var dir = 1;
+                    if (o[0] === '-') {
+                        dir = -1;
+                        o=o.substring(1);
+                    }
+                    a[o] = (!isNaN(+a[o]) && a[o]!=='')? +a[o] : a[o];
+                    b[o] = (!isNaN(+b[o]) && b[o]!=='')? +b[o] : b[o];
+                    if (a[o] > b[o]) return dir;
+                    if (a[o] < b[o]) return -(dir);
+                    return 0;
+                })
+                .reduce(function firstNonZeroValue (p,n) {
+                    return p ? p : n;
+                }, 0);
+        };
+    },
+    splitByPortion:function(obj,portionFunction, cbFull){
+        var portions = [];
+        var inPortion = obj.inPortion || 200;
+        var maxProcess = obj.maxProcess || 2;
+        var data = obj.data || [];
+        while (data.length !== 0) {
+            for (var i = 0; i<maxProcess; i++) {
+                if (!portions[i]) portions[i] = [];
+                var item = data.shift();
+                if (!item) continue;
+                portions[i].push(item);
+            }
+        }
+
+        async.each(portions, function (item, callback) {
+                var portions2 = [];
+                var counter = 0;
+                while (item.length !== 0) {
+                    var arr = portions2[counter++] = [];
+                    for (var i = 0; i < inPortion; i++) {
+                        var item2 = item.shift();
+                        if (!item2) continue;
+                        arr.push(item2);
+                    }
+                }
+                async.eachSeries(portions2,
+                    function (item2, callback) {
+                        portionFunction(item2,function(err){
+                            return callback(err);
+                        });
+                        /*var act_ids = [];
+                        var prices = [];
+
+                        for (var i in item) {
+                            act_ids.push(item[i].our_id);
+                            prices.push(item[i].price);
+                        }
+                        var modO = {
+                            command: 'operation',
+                            object: 'update_action_scheme_crocus_price_by_list',
+                            params: {
+                                action_scheme_id: act_ids.join('|!|'),
+                                price: prices.join('|!|')
+                            }
+                        };
+                        executeOracleNodeUser({
+                            o: modO,
+                            callback: function (res) {
+                                callback(null, null);
     }
+                        });*/
+                    },
+                    function (err, r) {
+                        callback(err, r);
+                    });
+            }, function (err, r) {
+                cbFull(err, r);
+            }
+        );
+    },
 
 
 
