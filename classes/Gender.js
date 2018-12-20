@@ -73,6 +73,7 @@ var Model = function(obj){
     // SCA_NUMBER
     // CREATED_USER_ID
     // CLOSED_USER_ID
+    // RETURN_USER_ID
     // USER_FULLNAME
     // CRM_USER_NAME
     // CRM_USER_EMAIL
@@ -111,6 +112,8 @@ var Model = function(obj){
             name_ru:'Пользователь (продавец)',
             name: 'user_id',
             filter_type: 'select2',
+            type: 'bigint',
+            fields:['CLOSED_USER_ID','RETURN_USER_ID'], // OR
             get: {
                 command: 'user_active_lov',
                 object: '',
@@ -269,7 +272,7 @@ var Model = function(obj){
 
     // Загружать по порциям
     // Обновить NodeJS
-    //
+    // Вывести канал продаж в вьюху
 };
 util.inherits(Model, BasicClass);
 
@@ -306,28 +309,14 @@ Model.prototype.testReport1 = function (obj, cb) {
     var rollback_key = obj.rollback_key || rollback.create();
     var filename = './TEMP/test1.xlsx';
 
-    _t.fields = {
-        user_id:{
-            name_ru:'Пользователь',
-            name:'user_id',
-            report_param:{
-                "field_type": "select2",
-                "label1": "Кассир",
-                "label2": "",
-                "get_command": "user_active_lov",
-                "get_command_where": "",
-                "report_attr": "user_id",
-                "report_attr2": "",
-                "default_value": "0",
-                "default_value2": "Выберите кассира"
-            }
-        }
-    };
-    // -> групперовка по каналам / продано/возвращено / блоки по залам
+
+    // -> групперовка по каналам / колонки: канал / продано/возвращено / блоки по залам
     var params = {
-        group:['channel_'],
+        group:['channel'],
         filters:{
-            hall_scheme_id:[]
+            user_id:980,
+            date_from:'19.12.2018',
+            date_to:'20.12.2018',
         }
     }
 
@@ -336,6 +325,67 @@ Model.prototype.testReport1 = function (obj, cb) {
             async.series({
                 getData1:function(cb){
                     pool.getConn(function(err, conn){
+
+                        var statuses = "'CLOSED', 'RETURNED'";
+
+                        var o = {
+                            command:'get',
+                            object:'ORDER_TICKET_OVERVIEW_ALL',
+                            sid:sid,
+                            where:"ACTION_FOR_TEST = 'FALSE' and STATUS in (" + statuses + ")",
+                            params:{}
+                        };
+
+                        for (var filter_key in params.filters) {
+                            var filter = {
+                                name:filter_key,
+                                val:params.filters[filter_key]
+                            };
+                        }
+
+                        if (from_date && to_date){
+                            o.where += " AND ((";
+                            o.where += " trunc(CLOSED_DATE) >= to_date('"+ from_date + "', 'DD.MM.YYYY')";
+                            o.where += " AND trunc(CLOSED_DATE) <= to_date('"+ to_date + "', 'DD.MM.YYYY')";
+                            o.where += ") OR (";
+                            o.where += " trunc(RETURN_DATE) >= to_date('"+ from_date + "', 'DD.MM.YYYY')";
+                            o.where += " AND trunc(RETURN_DATE) <= to_date('"+ to_date + "', 'DD.MM.YYYY')";
+                            o.where += "))";
+                        }else if (from_date){
+                            o.where += " AND ((";
+                            o.where += " trunc(CLOSED_DATE) >= to_date('"+ from_date + "', 'DD.MM.YYYY')";
+                            o.where += ") OR (";
+                            o.where += " trunc(RETURN_DATE) >= to_date('"+ from_date + "', 'DD.MM.YYYY')";
+                            o.where += "))";
+                        }else if (to_date){
+                            o.where += " AND ((";
+                            o.where += " trunc(CLOSED_DATE) <= to_date('"+ to_date + "', 'DD.MM.YYYY')";
+                            o.where += ") OR (";
+                            o.where += " trunc(RETURN_DATE) <= to_date('"+ to_date + "', 'DD.MM.YYYY')";
+                            o.where += "))";
+                        }
+
+
+
+
+
+
+                        if (company_id) o.where += " AND COMPANY_ID = " + company_id;
+
+                        if (sale_company_id) o.where += " AND SALE_COMPANY_ID = " + sale_company_id;
+                        if (!action_id) {
+                            if (action_from_date || action_to_date) {
+                                o.where += " AND ACTION_TYPE <> 'SUBSCRIPTION'";
+                            }
+                            if (action_from_date) o.where += " AND trunc(ACTION_DATE) >= to_date('"+ action_from_date + "', 'DD.MM.YYYY')";
+                            if (action_to_date) o.where += " AND trunc(ACTION_DATE) <= to_date('"+ action_to_date + "', 'DD.MM.YYYY')";
+                        }else{
+                            o.where += " AND ACTION_ID = " + action_id;
+                        }
+
+
+
+
                         var q = 'select * from order_ticket_overview_all limit 10000';
                         conn.query(q, function(err, res){
                             conn.release();
